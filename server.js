@@ -34,6 +34,11 @@ const server = http.createServer((req, res) => {
   const safePath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, "");
   let filePath = path.join(BASE_DIR, safePath);
 
+  // If file doesn't exist, check for matching .html file (e.g. /login -> /login.html)
+  if (!fs.existsSync(filePath) && fs.existsSync(filePath + ".html")) {
+    filePath = filePath + ".html";
+  }
+
   // If path is a directory, look for dashboard.html or index.html
   if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
     const dashboardHtml = path.join(filePath, "dashboard.html");

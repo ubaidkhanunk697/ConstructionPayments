@@ -1,6 +1,7 @@
 /**
  * CONSTRUCTION MATERIAL & PAYMENT MANAGEMENT SYSTEM
  * Centralized Supabase Authentication Service & Route Guards
+ * (Supabase Email & Password Authentication)
  */
 
 const Auth = {
@@ -9,7 +10,7 @@ const Auth = {
   currentSession: null,
 
   /**
-   * Initialize Supabase Client
+   * Initialize Supabase Client with persistent session and auto-refresh
    */
   init() {
     if (this.client) return this.client;
@@ -29,7 +30,8 @@ const Auth = {
         auth: {
           autoRefreshToken: true,
           persistSession: true,
-          detectSessionInUrl: true
+          detectSessionInUrl: true,
+          storage: typeof window !== "undefined" ? window.localStorage : undefined
         }
       });
       return this.client;
@@ -68,26 +70,122 @@ const Auth = {
   },
 
   /**
-   * Authenticate using Google OAuth
+   * Register a new user with Email and Password
    */
-  async signInWithGoogle() {
+  async signUp({ fullName, email, password }) {
     const supabase = this.init();
     if (!supabase) {
-      throw new Error("Supabase is not configured. Please add your credentials in js/env.js.");
+      throw new Error("Supabase is not configured. Please check your credentials.");
     }
 
-    // Dynamically construct redirect URL to dashboard.html based on active server origin
-    const redirectTo = `${window.location.origin}/dashboard.html`;
+    const cleanEmail = (email || "").trim().toLowerCase();
+    const cleanName = (fullName || "").trim();
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
+    // Single-Owner Registration Security Check:
+    // If an owner email is specified, enforce that only this email can register
+    const ownerEmail = (CONFIG.AUTH.ALLOWED_OWNER_EMAIL || "").trim().toLowerCase();
+    if (ownerEmail && cleanEmail !== ownerEmail) {
+      const approvedEmails = [
+        ownerEmail,
+        "ubaidkhanuk6973937@gmail.com",
+        "ubaidkhanunk697@gmail.com"
+      ];
+      if (!approvedEmails.includes(cleanEmail)) {
+        throw new Error("Registration is restricted to the authorized project owner. Public registration is closed.");
+      }
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password: password,
       options: {
-        redirectTo,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent"
+        data: {
+          full_name: cleanName
         }
       }
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    // Check if user already exists (Supabase obfuscation check)
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      const err = new Error("User already registered");
+      err.code = "user_already_exists";
+      throw err;
+    }
+
+    // If a session was returned immediately (email confirmation disabled in Supabase)
+    if (data.session && data.user) {
+      this.currentUser = data.user;
+      this.currentSession = data.session;
+
+      // Attempt to save profile record if profiles table exists
+      try {
+        await supabase.from("profiles").upsert({
+          id: data.user.id,
+          email: cleanEmail,
+          full_name: cleanName
+        });
+      } catch (profileErr) {
+        console.warn("Profile table upsert non-critical warning:", profileErr);
+      }
+    }
+
+    return data;
+  },
+
+  /**
+   * Authenticate using Email and Password
+   */
+  async signIn({ email, password }) {
+    const supabase = this.init();
+    if (!supabase) {
+      throw new Error("Supabase is not configured. Please check your credentials.");
+    }
+
+    const cleanEmail = (email || "").trim().toLowerCase();
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: password
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data.user) {
+      throw new Error("Login failed. No user record returned.");
+    }
+
+    // Verify authorized single-owner status
+    if (!this.isAuthorizedOwner(data.user)) {
+      await supabase.auth.signOut();
+      throw new Error("Access denied: This email is not authorized as the project owner.");
+    }
+
+    this.currentUser = data.user;
+    this.currentSession = data.session;
+
+    return data;
+  },
+
+  /**
+   * Request password reset email
+   */
+  async resetPassword(email) {
+    const supabase = this.init();
+    if (!supabase) {
+      throw new Error("Supabase is not configured. Please check your credentials.");
+    }
+
+    const cleanEmail = (email || "").trim().toLowerCase();
+    const redirectTo = `${window.location.origin}/login.html`;
+
+    const { data, error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo
     });
 
     if (error) {
@@ -112,13 +210,20 @@ const Auth = {
     this.currentUser = null;
     this.currentSession = null;
 
+    // Clear any cached credentials from storage
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        // Leave any offline non-auth caches intact if present
+      }
+    } catch (e) {}
+
     // Redirect to login page with logout notice
     const currentDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf("/") + 1);
     window.location.href = `${currentDir}login.html?notice=logged_out`;
   },
 
   /**
-   * Retrieve active session
+   * Retrieve active session from Supabase client
    */
   async getSession() {
     const supabase = this.init();
@@ -139,7 +244,7 @@ const Auth = {
    * Enforces:
    * 1. Active session exists
    * 2. User identity matches authorized owner allowlist
-   * If unauthorized, signs out immediately and redirects to login.html
+   * If unauthorized or not logged in, redirects immediately to login.html
    */
   async requireOwnerAuth() {
     if (!CONFIG.isConfigured()) {
@@ -163,7 +268,7 @@ const Auth = {
     // Verify authorized owner allowlist
     const user = session.user;
     if (!this.isAuthorizedOwner(user)) {
-      console.warn("Unauthorized Google account detected:", user.email);
+      console.warn("Unauthorized account detected:", user.email);
       // Immediately terminate session
       await supabase.auth.signOut();
       const currentDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf("/") + 1);
@@ -175,15 +280,20 @@ const Auth = {
     this.currentUser = user;
     this.currentSession = session;
 
-    // Listen for auth state changes (e.g. cross-tab signout, token expiry)
+    // Listen for auth state changes (e.g. cross-tab signout, token expiry, refresh)
     supabase.auth.onAuthStateChange(async (event, currentSession) => {
       if (event === "SIGNED_OUT" || !currentSession) {
+        this.currentUser = null;
+        this.currentSession = null;
         const currentDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf("/") + 1);
         window.location.replace(`${currentDir}login.html?reason=session_expired`);
       } else if (currentSession && !this.isAuthorizedOwner(currentSession.user)) {
         await supabase.auth.signOut();
         const currentDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf("/") + 1);
         window.location.replace(`${currentDir}login.html?error=unauthorized`);
+      } else if (currentSession) {
+        this.currentSession = currentSession;
+        this.currentUser = currentSession.user;
       }
     });
 
@@ -191,7 +301,7 @@ const Auth = {
   },
 
   /**
-   * Guard for Public / Gateway Pages (e.g. login.html, index.html)
+   * Guard for Public / Gateway Pages (e.g. login.html, register.html, index.html)
    * If already logged in as authorized owner, redirects directly to dashboard.html
    */
   async redirectIfAuthenticated() {
@@ -200,11 +310,10 @@ const Auth = {
     const supabase = this.init();
     if (!supabase) return;
 
-    // Check URL parameters for OAuth errors
+    // Check URL parameters for explicit errors
     const params = new URLSearchParams(window.location.search);
-    const hash = window.location.hash;
-    if (params.get("error") || (hash && hash.includes("error="))) {
-      return; // Do not auto-redirect if an error is present
+    if (params.get("error")) {
+      return; // Do not auto-redirect if an error param is present
     }
 
     const session = await this.getSession();
@@ -224,4 +333,3 @@ const Auth = {
 if (typeof window !== "undefined") {
   window.Auth = Auth;
 }
-

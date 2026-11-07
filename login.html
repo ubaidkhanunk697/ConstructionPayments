@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Owner Login - Construction Material &amp; Payment System</title>
   
-  <meta name="description" content="Secure single-owner Google authentication for the Construction Material & Payment System.">
+  <meta name="description" content="Secure single-owner email and password authentication for the Construction Material & Payment System.">
 
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
@@ -61,42 +61,6 @@
       box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
     }
 
-    .google-btn {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: var(--space-3);
-      padding: 0.75rem 1rem;
-      background-color: var(--color-surface);
-      border: 1px solid #CBD5E1;
-      border-radius: var(--radius-md);
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-semibold);
-      color: var(--color-text-main);
-      box-shadow: var(--shadow-sm);
-      transition: background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
-      margin: var(--space-4) 0;
-      position: relative;
-    }
-
-    .google-btn:hover:not(:disabled) {
-      background-color: var(--color-surface-hover);
-      border-color: #94A3B8;
-      box-shadow: var(--shadow-md);
-    }
-
-    .google-btn:disabled {
-      opacity: 0.7;
-      cursor: wait;
-    }
-
-    .google-icon-svg {
-      width: 20px;
-      height: 20px;
-      flex-shrink: 0;
-    }
-
     .security-notice-box {
       background-color: var(--color-bg-primary);
       border: 1px solid var(--color-border);
@@ -148,9 +112,33 @@
       color: var(--color-primary-hover);
     }
 
+    .auth-alert-success {
+      background-color: var(--color-paid-subtle);
+      border: 1px solid var(--color-paid-border);
+      color: var(--color-paid);
+    }
+
     .auth-alert-icon {
       flex-shrink: 0;
       margin-top: 1px;
+    }
+
+    .toggle-pw-btn {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--color-text-dim);
+      display: flex;
+      align-items: center;
+      padding: 4px;
+    }
+
+    .toggle-pw-btn:hover {
+      color: var(--color-text-main);
     }
 
     /* Spinner */
@@ -196,17 +184,86 @@
       <!-- Auth Message Status Container -->
       <div id="auth-message" style="margin-bottom: var(--space-3); font-size: var(--font-size-xs); color: var(--color-text-dim); display: none;"></div>
 
-      <!-- Google OAuth Sign-In Button -->
-      <button type="button" id="google-login" data-alias="btn-google-login" class="google-btn">
-        <svg class="google-icon-svg" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-        </svg>
-        <span id="btn-google-text">Continue with Google</span>
-        <div id="btn-google-spinner" class="spinner" style="display: none;"></div>
-      </button>
+      <!-- Normal Email / Password Login Form -->
+      <form id="login-form" novalidate style="text-align: left;">
+        
+        <!-- Email Address -->
+        <div class="form-group">
+          <label class="form-label" for="login-email">
+            Email Address <span class="required">*</span>
+          </label>
+          <div class="input-with-icon">
+            <i data-lucide="mail" class="input-icon-left" style="width: 16px; height: 16px;"></i>
+            <input 
+              type="email" 
+              id="login-email" 
+              name="email" 
+              class="form-input" 
+              placeholder="owner@example.com" 
+              required 
+              autocomplete="email"
+            />
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-1);">
+            <label class="form-label" for="login-password" style="margin-bottom: 0;">
+              Password <span class="required">*</span>
+            </label>
+            <a href="#" id="link-forgot-password" style="font-size: var(--font-size-xs); color: var(--color-primary); text-decoration: none;">
+              Forgot password?
+            </a>
+          </div>
+          <div class="input-with-icon" style="position: relative;">
+            <i data-lucide="lock" class="input-icon-left" style="width: 16px; height: 16px;"></i>
+            <input 
+              type="password" 
+              id="login-password" 
+              name="password" 
+              class="form-input" 
+              placeholder="Enter your password" 
+              required 
+              autocomplete="current-password"
+              style="padding-right: 2.5rem;"
+            />
+            <button type="button" id="toggle-login-password-btn" class="toggle-pw-btn" aria-label="Toggle password visibility">
+              <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Submit Login Button -->
+        <button type="submit" id="btn-login" class="btn btn-primary" style="width: 100%; margin-top: var(--space-3); padding: 0.75rem 1rem;">
+          <i data-lucide="log-in" style="width: 18px; height: 18px;"></i>
+          <span id="btn-login-text">Sign In to Dashboard</span>
+          <div id="btn-login-spinner" class="spinner" style="display: none; width: 16px; height: 16px; border-width: 2px; border-top-color: #fff;"></div>
+        </button>
+
+      </form>
+
+      <!-- Forgot Password Form (Collapsible) -->
+      <form id="forgot-password-form" style="display: none; text-align: left; margin-top: var(--space-4); border-top: 1px dashed var(--color-border); padding-top: var(--space-4);">
+        <p style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-bottom: var(--space-3);">
+          Enter your registered email address and we will send you a password reset link.
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="reset-email">Email Address</label>
+          <div class="input-with-icon">
+            <i data-lucide="mail" class="input-icon-left" style="width: 16px; height: 16px;"></i>
+            <input type="email" id="reset-email" class="form-input" placeholder="owner@example.com" required>
+          </div>
+        </div>
+        <div class="flex gap-2" style="margin-top: var(--space-2);">
+          <button type="submit" id="btn-send-reset" class="btn btn-secondary btn-sm" style="flex: 1;">
+            Send Reset Link
+          </button>
+          <button type="button" id="btn-cancel-reset" class="btn btn-ghost btn-sm">
+            Cancel
+          </button>
+        </div>
+      </form>
 
       <!-- Security Notice Box -->
       <div class="security-notice-box">
@@ -215,15 +272,20 @@
           <strong style="color: var(--color-text-main); display: block; margin-bottom: 2px;">
             Single-Owner Access Only
           </strong>
-          Only the authorized project owner's Google account can access this system. Public registration is disabled. All unapproved logins are instantly rejected.
+          Only the authorized project owner can access this system. Your session is securely maintained with automatic token refresh.
         </div>
       </div>
 
-      <div style="margin-top: var(--space-6); text-align: center;">
-        <a href="index.html" style="font-size: var(--font-size-xs); color: var(--color-text-dim);">
+      <!-- Links to Registration and Overview -->
+      <div style="margin-top: var(--space-5); text-align: center; display: flex; flex-direction: column; gap: var(--space-2);">
+        <a href="register.html" id="link-to-register" style="font-size: var(--font-size-xs); color: var(--color-primary); font-weight: var(--font-weight-medium); text-decoration: none;">
+          Need to register your owner account? Sign Up &rarr;
+        </a>
+        <a href="index.html" style="font-size: var(--font-size-xs); color: var(--color-text-dim); text-decoration: none;">
           &larr; Return to System Overview
         </a>
       </div>
+
     </div>
   </div>
 
@@ -231,7 +293,6 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Configuration & Authentication Scripts -->
-  <!-- Optional local env override -->
   <script src="js/env.js" onerror="/* env.js is optional; fallback to config.js */"></script>
   <script src="js/config.js"></script>
   <script src="js/ui.js"></script>
@@ -244,73 +305,76 @@
       }
 
       const alertContainer = document.getElementById("auth-alert-container");
-      const googleBtn = document.getElementById("google-login") || document.getElementById("btn-google-login");
-      const btnText = document.getElementById("btn-google-text");
-      const btnSpinner = document.getElementById("btn-google-spinner");
-      const authMessage = document.getElementById("auth-message");
+      const form = document.getElementById("login-form");
+      const emailInput = document.getElementById("login-email");
+      const passwordInput = document.getElementById("login-password");
+      const loginBtn = document.getElementById("btn-login");
+      const btnText = document.getElementById("btn-login-text");
+      const btnSpinner = document.getElementById("btn-login-spinner");
+      const togglePwBtn = document.getElementById("toggle-login-password-btn");
 
+      const linkForgotPw = document.getElementById("link-forgot-password");
+      const forgotPwForm = document.getElementById("forgot-password-form");
+      const resetEmailInput = document.getElementById("reset-email");
+      const cancelResetBtn = document.getElementById("btn-cancel-reset");
+
+      // Toggle Password Visibility
+      if (togglePwBtn && passwordInput) {
+        togglePwBtn.addEventListener("click", () => {
+          const isPassword = passwordInput.type === "password";
+          passwordInput.type = isPassword ? "text" : "password";
+          togglePwBtn.innerHTML = isPassword ? `<i data-lucide="eye-off" style="width: 16px; height: 16px;"></i>` : `<i data-lucide="eye" style="width: 16px; height: 16px;"></i>`;
+          if (window.lucide) window.lucide.createIcons();
+        });
+      }
+
+      // Helper to display alert banner
       function showAlert(type, title, message) {
-        const icons = {
-          danger: "shield-alert",
-          warning: "alert-triangle",
-          info: "info"
-        };
-        const alertEl = document.createElement("div");
-        alertEl.className = `auth-alert auth-alert-${type}`;
-        alertEl.innerHTML = `
-          <i data-lucide="${icons[type] || 'info'}" class="auth-alert-icon" style="width: 18px; height: 18px;"></i>
-          <div>
-            <strong style="display: block; margin-bottom: 2px;">${title}</strong>
-            <div>${message}</div>
+        if (!alertContainer) return;
+        const iconName = type === "danger" ? "alert-circle" : (type === "warning" ? "alert-triangle" : (type === "success" ? "check-circle-2" : "info"));
+        alertContainer.innerHTML = `
+          <div class="auth-alert auth-alert-${type}">
+            <i data-lucide="${iconName}" class="auth-alert-icon" style="width: 16px; height: 16px;"></i>
+            <div>
+              <strong style="display: block; margin-bottom: 2px;">${title}</strong>
+              <span>${message}</span>
+            </div>
           </div>
         `;
-        alertContainer.appendChild(alertEl);
         if (window.lucide) window.lucide.createIcons();
       }
 
-      // Check URL parameters for status/errors
-      const params = new URLSearchParams(window.location.search);
-      const hash = window.location.hash;
+      function clearAlert() {
+        if (alertContainer) alertContainer.innerHTML = "";
+      }
 
-      if (params.get("error") === "unauthorized") {
-        const attempted = params.get("attempted") || "your account";
-        showAlert(
-          "danger",
-          "Access Denied: Unauthorized Account",
-          `Google account <strong>${attempted}</strong> is not approved to access this system. Only the designated project owner has access.`
-        );
-      } else if (params.get("notice") === "logged_out") {
+      // Check URL query parameters for statuses
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("notice") === "logged_out") {
         showAlert(
           "info",
           "Signed Out",
-          "You have been successfully and securely logged out."
+          "You have successfully signed out of the system. Enter your email and password to sign in again."
+        );
+      } else if (params.get("error") === "unauthorized") {
+        const attempted = params.get("attempted") || "This account";
+        showAlert(
+          "danger",
+          "Access Denied",
+          `<strong>${attempted}</strong> is not authorized as the project owner. Please sign in with the approved owner account.`
         );
       } else if (params.get("reason") === "session_expired") {
         showAlert(
           "warning",
           "Session Expired",
-          "Your authentication session has expired. Please sign in again with Google."
+          "Your login session has expired or was terminated from another window. Please sign in again."
         );
       } else if (params.get("reason") === "unauthenticated") {
         showAlert(
           "info",
-          "Sign In Required",
-          "Please sign in with the approved Google owner account to view project records."
+          "Authentication Required",
+          "Please sign in with your owner email and password to access the project dashboard."
         );
-      }
-
-      // If access token hash arrived on login page, forward immediately to dashboard.html
-      if (hash && hash.includes("access_token=")) {
-        const currentDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf("/") + 1);
-        window.location.replace(`${currentDir}dashboard.html${hash}`);
-        return;
-      }
-
-      // Check for OAuth hash errors
-      if (hash && hash.includes("error=")) {
-        const hashParams = new URLSearchParams(hash.substring(1));
-        const desc = hashParams.get("error_description") || "Authentication could not be completed.";
-        showAlert("danger", "Authentication Error", desc);
       }
 
       // Check if Supabase configuration is present
@@ -318,47 +382,141 @@
         showAlert(
           "warning",
           "Supabase Setup Required",
-          "Supabase credentials have not been configured yet. Copy <code>js/env.template.js</code> to <code>js/env.js</code> and enter your Supabase URL, publishable key, and owner email."
+          "Supabase credentials have not been configured yet. Ensure <code>js/config.js</code> or <code>js/env.js</code> contains your Project URL and Anon Key."
         );
       }
 
-      // If user is already authenticated and authorized, redirect to dashboard
+      // If user is already authenticated and authorized, redirect immediately to dashboard
       await Auth.redirectIfAuthenticated();
 
-      // Bind Continue with Google click
-      if (googleBtn) {
-        googleBtn.addEventListener("click", async () => {
+      // Handle Login Form Submission
+      if (form) {
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          clearAlert();
+
+          const email = emailInput.value.trim().toLowerCase();
+          const password = passwordInput.value;
+
+          // 1. Missing fields check
+          if (!email) {
+            showAlert("danger", "Email Required", "Please enter your registered email address.");
+            emailInput.focus();
+            return;
+          }
+
+          if (!password) {
+            showAlert("danger", "Password Required", "Please enter your password.");
+            passwordInput.focus();
+            return;
+          }
+
+          // 2. Validate email format
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            showAlert("danger", "Invalid Email", "Please enter a valid email address (e.g. owner@example.com).");
+            emailInput.focus();
+            return;
+          }
+
           if (!CONFIG.isConfigured()) {
-            UI.showToast(
-              "Please configure your Supabase Project URL and Anon Key in js/env.js before authenticating.",
-              "warning",
-              "Configuration Missing"
-            );
+            UI.showToast("Supabase credentials not configured.", "warning", "Configuration Missing");
             return;
           }
 
           try {
-            googleBtn.disabled = true;
-            btnText.textContent = "Redirecting to Google...";
-            if (authMessage) {
-              authMessage.textContent = "Redirecting to Google...";
-              authMessage.style.display = "block";
-              authMessage.style.color = "var(--color-text-dim)";
-            }
+            loginBtn.disabled = true;
+            btnText.textContent = "Authenticating...";
             btnSpinner.style.display = "block";
 
-            await Auth.signInWithGoogle();
+            await Auth.signIn({ email, password });
+
+            showAlert("success", "Login Successful", "Welcome back! Loading your project dashboard...");
+            UI.showToast("Authentication successful! Welcome back.", "success", "Authorized");
+
+            setTimeout(() => {
+              window.location.replace("dashboard.html");
+            }, 600);
+
           } catch (err) {
-            console.error("Google sign in error:", err);
-            googleBtn.disabled = false;
-            btnText.textContent = "Continue with Google";
-            if (authMessage) {
-              authMessage.textContent = err.message || "Failed to initiate Google sign in.";
-              authMessage.style.display = "block";
-              authMessage.style.color = "var(--color-pending)";
-            }
+            console.error("Login error:", err);
+            loginBtn.disabled = false;
+            btnText.textContent = "Sign In to Dashboard";
             btnSpinner.style.display = "none";
-            UI.showToast(err.message || "Failed to initiate Google sign in.", "error", "OAuth Error");
+
+            const msg = (err.message || "").toLowerCase();
+
+            if (msg.includes("invalid login credentials") || msg.includes("invalid_grant") || msg.includes("invalid username or password")) {
+              showAlert(
+                "danger",
+                "Incorrect Email or Password",
+                "The email address or password you entered is incorrect. Please double-check your credentials and try again."
+              );
+              passwordInput.focus();
+            } else if (msg.includes("email not confirmed") || msg.includes("email unconfirmed")) {
+              showAlert(
+                "warning",
+                "Email Not Verified",
+                `Your email address has not been confirmed yet. Please check your inbox at <strong>${email}</strong> for the Supabase verification email.`
+              );
+            } else if (msg.includes("access denied") || msg.includes("not authorized")) {
+              showAlert(
+                "danger",
+                "Unauthorized Account",
+                err.message || "This email address is not authorized as the designated project owner."
+              );
+            } else if (msg.includes("failed to fetch") || msg.includes("networkerror") || msg.includes("network error")) {
+              showAlert(
+                "danger",
+                "Network Error",
+                "Could not reach Supabase servers. Please check your internet connection and try again."
+              );
+            } else {
+              showAlert(
+                "danger",
+                "Authentication Failed",
+                err.message || "An unexpected error occurred during login."
+              );
+            }
+          }
+        });
+      }
+
+      // Handle Forgot Password Toggle
+      if (linkForgotPw && forgotPwForm) {
+        linkForgotPw.addEventListener("click", (e) => {
+          e.preventDefault();
+          const isHidden = forgotPwForm.style.display === "none";
+          forgotPwForm.style.display = isHidden ? "block" : "none";
+          if (isHidden && emailInput.value) {
+            resetEmailInput.value = emailInput.value;
+          }
+        });
+      }
+
+      if (cancelResetBtn && forgotPwForm) {
+        cancelResetBtn.addEventListener("click", () => {
+          forgotPwForm.style.display = "none";
+        });
+      }
+
+      // Handle Forgot Password Submit
+      if (forgotPwForm) {
+        forgotPwForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const resetEmail = resetEmailInput.value.trim().toLowerCase();
+          if (!resetEmail) {
+            UI.showToast("Please enter your email address for password reset.", "warning", "Input Required");
+            return;
+          }
+
+          try {
+            await Auth.resetPassword(resetEmail);
+            showAlert("success", "Password Reset Link Sent", `If an account exists for <strong>${resetEmail}</strong>, a password reset link has been sent.`);
+            forgotPwForm.style.display = "none";
+          } catch (resetErr) {
+            console.error("Password reset error:", resetErr);
+            showAlert("danger", "Reset Failed", resetErr.message || "Could not send password reset link.");
           }
         });
       }

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Owner Registration - Construction Material &amp; Payment System</title>
+  
+  <meta name="description" content="Secure single-owner email and password registration for the Construction Material & Payment System.">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="alternate icon" href="assets/favicon.svg">
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Supabase Official JavaScript Client SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Modular Stylesheets (Guaranteed compatibility with file:// and http://) -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/modals.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/style.css">
+
+  <style>
+    .auth-wrapper {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4);
+      background: radial-gradient(circle at 50% 30%, #E8F1F9 0%, #F0F4F8 100%);
+    }
+
+    .auth-container {
+      width: 100%;
+      max-width: 460px;
+    }
+
+    .auth-card {
+      padding: var(--space-8) var(--space-6);
+      text-align: center;
+      position: relative;
+    }
+
+    .auth-brand-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, var(--color-primary), #1D4ED8);
+      color: var(--color-text-white);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--space-4);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+
+    .security-notice-box {
+      background-color: var(--color-bg-primary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      text-align: left;
+      display: flex;
+      gap: var(--space-2);
+      align-items: flex-start;
+      margin-top: var(--space-4);
+    }
+
+    .security-notice-box i {
+      color: var(--color-primary);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* Auth Alerts */
+    .auth-alert {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-xs);
+      text-align: left;
+      display: flex;
+      gap: var(--space-2);
+      align-items: flex-start;
+      margin-bottom: var(--space-4);
+      animation: alertFadeIn 200ms ease forwards;
+    }
+
+    .auth-alert-danger {
+      background-color: var(--color-pending-subtle);
+      border: 1px solid var(--color-pending-border);
+      color: var(--color-pending-hover);
+    }
+
+    .auth-alert-warning {
+      background-color: var(--color-warning-subtle);
+      border: 1px solid #FCD34D;
+      color: #92400E;
+    }
+
+    .auth-alert-info {
+      background-color: var(--color-primary-subtle);
+      border: 1px solid var(--color-primary-border);
+      color: var(--color-primary-hover);
+    }
+
+    .auth-alert-success {
+      background-color: var(--color-paid-subtle);
+      border: 1px solid var(--color-paid-border);
+      color: var(--color-paid);
+    }
+
+    .auth-alert-icon {
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .toggle-pw-btn {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--color-text-dim);
+      display: flex;
+      align-items: center;
+      padding: 4px;
+    }
+
+    .toggle-pw-btn:hover {
+      color: var(--color-text-main);
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #CBD5E1;
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      animation: spin 600ms linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes alertFadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="auth-wrapper">
+
+  <div class="auth-container">
+    <div class="card-glass auth-card">
+      
+      <!-- Brand Icon -->
+      <div class="auth-brand-icon">
+        <i data-lucide="user-plus" style="width: 28px; height: 28px;"></i>
+      </div>
+
+      <h1 style="font-size: var(--font-size-lg); margin-bottom: 4px;">
+        Owner Registration
+      </h1>
+      <p style="font-size: var(--font-size-xs); color: var(--color-text-dim); margin-bottom: var(--space-4);">
+        Construction Material &amp; Payment System
+      </p>
+
+      <!-- Alert Banners -->
+      <div id="auth-alert-container"></div>
+
+      <!-- Registration Form -->
+      <form id="register-form" novalidate style="text-align: left;">
+        
+        <!-- Full Name -->
+        <div class="form-group">
+          <label class="form-label" for="register-name">
+            Full Name <span class="required">*</span>
+          </label>
+          <div class="input-with-icon">
+            <i data-lucide="user" class="input-icon-left" style="width: 16px; height: 16px;"></i>
+            <input 
+              type="text" 
+              id="register-name" 
+              name="name" 
+              class="form-input" 
+              placeholder="e.g. Ubaid Khan" 
+              required 
+              autocomplete="name"
+            />
+          </div>
+        </div>
+
+        <!-- Email Address -->
+        <div class="form-group">
+          <label class="form-label" for="register-email">
+            Email Address <span class="required">*</span>
+          </label>
+          <div class="input-with-icon">
+            <i data-lucide="mail" class="input-icon-left" style="width: 16px; height: 16px;"></i>
+            <input 
+              type="email" 
+              id="register-email" 
+              name="email" 
+              class="form-input" 
+              placeholder="owner@example.com" 
+              required 
+              autocomplete="email"
+            />
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="form-group">
+          <label class="form-label" for="register-password">
+            Password <span class="required">*</span>
+          </label>
+          <div class="input-with-icon" style="position: relative;">
+            <i data-lucide="lock" class="input-icon-left" style="width: 16px; height: 16px;"></i>
+            <input 
+              type="password" 
+              id="register-password" 
+              name="password" 
+              class="form-input" 
+              placeholder="Minimum 6 characters" 
+              required 
+              minlength="6"
+              autocomplete="new-password"
+              style="padding-right: 2.5rem;"
+            />
+            <button type="button" id="toggle-password-btn" class="toggle-pw-btn" aria-label="Toggle password visibility">
+              <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+            </button>
+          </div>
+          <small style="font-size: 11px; color: var(--color-text-dim); margin-top: 2px;">
+            Must be at least 6 characters
+          </small>
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="form-group">
+          <label class="form-label" for="register-confirm-password">
+            Confirm Password <span class="required">*</span>
+          </label>
+          <div class="input-with-icon" style="position: relative;">
+            <i data-lucide="lock" class="input-icon-left" style="width: 16px; height: 16px;"></i>
+            <input 
+              type="password" 
+              id="register-confirm-password" 
+              name="confirm-password" 
+              class="form-input" 
+              placeholder="Re-enter password" 
+              required 
+              minlength="6"
+              autocomplete="new-password"
+              style="padding-right: 2.5rem;"
+            />
+            <button type="button" id="toggle-confirm-password-btn" class="toggle-pw-btn" aria-label="Toggle password visibility">
+              <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Register Button -->
+        <button type="submit" id="btn-register" class="btn btn-primary" style="width: 100%; margin-top: var(--space-3); padding: 0.75rem 1rem;">
+          <i data-lucide="user-check" style="width: 18px; height: 18px;"></i>
+          <span id="btn-register-text">Create Owner Account</span>
+          <div id="btn-register-spinner" class="spinner" style="display: none; width: 16px; height: 16px; border-width: 2px; border-top-color: #fff;"></div>
+        </button>
+
+      </form>
+
+      <!-- Security Notice Box -->
+      <div class="security-notice-box">
+        <i data-lucide="shield" style="width: 16px; height: 16px;"></i>
+        <div>
+          <strong style="color: var(--color-text-main); display: block; margin-bottom: 2px;">
+            Single-Owner System
+          </strong>
+          This system is strictly reserved for the authorized project owner. Passwords are encrypted by Supabase Auth and never stored in plain text.
+        </div>
+      </div>
+
+      <!-- Links to Login and Overview -->
+      <div style="margin-top: var(--space-5); text-align: center; display: flex; flex-direction: column; gap: var(--space-2);">
+        <a href="login.html" id="link-to-login" style="font-size: var(--font-size-xs); color: var(--color-primary); font-weight: var(--font-weight-medium); text-decoration: none;">
+          Already have an account? Sign In &rarr;
+        </a>
+        <a href="index.html" style="font-size: var(--font-size-xs); color: var(--color-text-dim); text-decoration: none;">
+          &larr; Return to System Overview
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Configuration & Authentication Scripts -->
+  <script src="js/env.js" onerror="/* env.js is optional; fallback to config.js */"></script>
+  <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/auth.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      if (window.lucide) {
+        window.lucide.createIcons();
+      }
+
+      const alertContainer = document.getElementById("auth-alert-container");
+      const form = document.getElementById("register-form");
+      const nameInput = document.getElementById("register-name");
+      const emailInput = document.getElementById("register-email");
+      const passwordInput = document.getElementById("register-password");
+      const confirmInput = document.getElementById("register-confirm-password");
+      const registerBtn = document.getElementById("btn-register");
+      const btnText = document.getElementById("btn-register-text");
+      const btnSpinner = document.getElementById("btn-register-spinner");
+
+      const togglePwBtn = document.getElementById("toggle-password-btn");
+      const toggleConfirmPwBtn = document.getElementById("toggle-confirm-password-btn");
+
+      // Toggle Password Visibility
+      if (togglePwBtn && passwordInput) {
+        togglePwBtn.addEventListener("click", () => {
+          const isPassword = passwordInput.type === "password";
+          passwordInput.type = isPassword ? "text" : "password";
+          togglePwBtn.innerHTML = isPassword ? `<i data-lucide="eye-off" style="width: 16px; height: 16px;"></i>` : `<i data-lucide="eye" style="width: 16px; height: 16px;"></i>`;
+          if (window.lucide) window.lucide.createIcons();
+        });
+      }
+
+      if (toggleConfirmPwBtn && confirmInput) {
+        toggleConfirmPwBtn.addEventListener("click", () => {
+          const isPassword = confirmInput.type === "password";
+          confirmInput.type = isPassword ? "text" : "password";
+          toggleConfirmPwBtn.innerHTML = isPassword ? `<i data-lucide="eye-off" style="width: 16px; height: 16px;"></i>` : `<i data-lucide="eye" style="width: 16px; height: 16px;"></i>`;
+          if (window.lucide) window.lucide.createIcons();
+        });
+      }
+
+      // Helper to display alert banner
+      function showAlert(type, title, message) {
+        if (!alertContainer) return;
+        const iconName = type === "danger" ? "alert-circle" : (type === "warning" ? "alert-triangle" : (type === "success" ? "check-circle-2" : "info"));
+        alertContainer.innerHTML = `
+          <div class="auth-alert auth-alert-${type}">
+            <i data-lucide="${iconName}" class="auth-alert-icon" style="width: 16px; height: 16px;"></i>
+            <div>
+              <strong style="display: block; margin-bottom: 2px;">${title}</strong>
+              <span>${message}</span>
+            </div>
+          </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      function clearAlert() {
+        if (alertContainer) alertContainer.innerHTML = "";
+      }
+
+      // Check if user is already authenticated -> redirect to dashboard
+      await Auth.redirectIfAuthenticated();
+
+      // Check if Supabase configuration is present
+      if (!CONFIG.isConfigured()) {
+        showAlert(
+          "warning",
+          "Supabase Setup Required",
+          "Supabase credentials have not been configured yet. Ensure <code>js/config.js</code> or <code>js/env.js</code> contains your Project URL and Anon Key."
+        );
+      }
+
+      // Handle Registration Submission
+      if (form) {
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          clearAlert();
+
+          const fullName = nameInput.value.trim();
+          const email = emailInput.value.trim().toLowerCase();
+          const password = passwordInput.value;
+          const confirmPassword = confirmInput.value;
+
+          // 1. Validate required fields
+          if (!fullName) {
+            showAlert("danger", "Name Required", "Please enter your full name.");
+            nameInput.focus();
+            return;
+          }
+
+          if (!email) {
+            showAlert("danger", "Email Required", "Please enter your email address.");
+            emailInput.focus();
+            return;
+          }
+
+          // 2. Validate email format
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            showAlert("danger", "Invalid Email", "Please enter a valid email address (e.g. owner@example.com).");
+            emailInput.focus();
+            return;
+          }
+
+          // 3. Password requirements
+          if (!password || password.length < 6) {
+            showAlert("danger", "Password Too Short", "Password must be at least 6 characters long.");
+            passwordInput.focus();
+            return;
+          }
+
+          // 4. Password confirmation match
+          if (password !== confirmPassword) {
+            showAlert("danger", "Password Mismatch", "Password and Confirm Password do not match. Please re-enter.");
+            confirmInput.focus();
+            return;
+          }
+
+          // Submit registration to Supabase
+          try {
+            registerBtn.disabled = true;
+            btnText.textContent = "Creating Account...";
+            btnSpinner.style.display = "block";
+
+            const result = await Auth.signUp({ fullName, email, password });
+
+            // Case A: Immediate session returned (email verification not required or auto-confirmed)
+            if (result.session) {
+              showAlert(
+                "success",
+                "Account Created Successfully!",
+                "Your owner account has been registered. Redirecting to your dashboard..."
+              );
+              UI.showToast("Registration successful! Redirecting to dashboard...", "success", "Welcome");
+              setTimeout(() => {
+                window.location.replace("dashboard.html");
+              }, 1200);
+              return;
+            }
+
+            // Case B: Supabase email verification required
+            showAlert(
+              "success",
+              "Verification Email Sent",
+              `Account registered successfully! A confirmation link has been sent to <strong>${email}</strong>. Please check your inbox and verify your email, then <a href="login.html" style="font-weight: 600; text-decoration: underline;">log in here</a>.`
+            );
+            form.reset();
+            registerBtn.disabled = false;
+            btnText.textContent = "Create Owner Account";
+            btnSpinner.style.display = "none";
+
+          } catch (err) {
+            console.error("Registration error:", err);
+            registerBtn.disabled = false;
+            btnText.textContent = "Create Owner Account";
+            btnSpinner.style.display = "none";
+
+            const msg = (err.message || "").toLowerCase();
+
+            if (msg.includes("already registered") || msg.includes("already exists") || err.code === "user_already_exists") {
+              showAlert(
+                "warning",
+                "Email Already Registered",
+                `The email <strong>${email}</strong> is already registered. Please <a href="login.html" style="font-weight: 600; text-decoration: underline;">click here to log in</a> with your password.`
+              );
+            } else if (msg.includes("restricted to the authorized project owner")) {
+              showAlert(
+                "danger",
+                "Registration Restricted",
+                "Only the designated project owner can register an account for this construction management system."
+              );
+            } else {
+              showAlert("danger", "Registration Failed", err.message || "An unexpected error occurred during registration.");
+            }
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>

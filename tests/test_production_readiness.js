@@ -19,6 +19,8 @@ function auditProduction() {
   const authJs = fs.readFileSync(path.join(__dirname, "../js/auth.js"), "utf8");
   const configJs = fs.readFileSync(path.join(__dirname, "../js/config.js"), "utf8");
 
+  const registerHtml = fs.existsSync(path.join(__dirname, "../register.html")) ? fs.readFileSync(path.join(__dirname, "../register.html"), "utf8") : "";
+
   const checks = [];
 
   function check(category, name, condition, details = "") {
@@ -29,10 +31,13 @@ function auditProduction() {
 
   // 1. Authentication & Route Guards
   console.log("--- 1. Authentication & Security ---");
-  check("Auth", "Google Login Button exists in login.html", loginHtml.includes('id="google-login"'));
-  check("Auth", "Auth Status text element exists in login.html", loginHtml.includes('id="auth-message"'));
-  check("Auth", "Single-Owner UUID hardcoded in config fallback", configJs.includes("55a43065-dcb8-450a-a68f-d05fd221a5bb"));
-  check("Auth", "Dynamic redirectTo uses window.location.origin", authJs.includes("${window.location.origin}/dashboard.html"));
+  check("Auth", "Email Address input exists in login.html", loginHtml.includes('id="login-email"'));
+  check("Auth", "Password input exists in login.html", loginHtml.includes('id="login-password"'));
+  check("Auth", "Sign In submit button exists in login.html", loginHtml.includes('id="btn-login"'));
+  check("Auth", "Link to Register page exists in login.html", loginHtml.includes('href="register.html"'));
+  check("Auth", "Register page with Full Name and Email inputs exists", registerHtml.includes('id="register-name"') && registerHtml.includes('id="register-email"'));
+  check("Auth", "Single-Owner UUID preserved in config fallback", configJs.includes("55a43065-dcb8-450a-a68f-d05fd221a5bb"));
+  check("Auth", "Persistent session enabled in Supabase client", authJs.includes("persistSession: true") && authJs.includes("autoRefreshToken: true"));
   check("Auth", "Logout button exists in sidebar / mobile drawer", dashHtml.includes('id="logout-btn"'));
   check("Auth", "Auth route guard initial check in app.js", appJs.includes("Auth.requireOwnerAuth()"));
 
