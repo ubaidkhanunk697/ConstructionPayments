@@ -12,11 +12,11 @@ DECLARE
   v_mat4_id UUID;
   v_mat5_id UUID;
 BEGIN
-  -- Select the first authenticated user in profiles (or fallback to auth.users)
-  SELECT id INTO v_user_id FROM public.profiles LIMIT 1;
+  -- Assign the exact single-owner authenticated UUID
+  v_user_id := '55a43065-dcb8-450a-a68f-d05fd221a5bb'::uuid;
 
   IF v_user_id IS NULL THEN
-    SELECT id INTO v_user_id FROM auth.users LIMIT 1;
+    SELECT id INTO v_user_id FROM public.profiles LIMIT 1;
   END IF;
 
   IF v_user_id IS NULL THEN

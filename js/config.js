@@ -50,9 +50,9 @@ const CONFIG = {
   // Single-Owner Authorization Allowlist
   AUTH: {
     // Primary authorization: The approved Google account email of the project owner
-    ALLOWED_OWNER_EMAIL: (env.ALLOWED_OWNER_EMAIL || "").trim().toLowerCase(),
+    ALLOWED_OWNER_EMAIL: (env.ALLOWED_OWNER_EMAIL || "ubaidkhanuk6973937@gmail.com").trim().toLowerCase(),
     // Secondary authorization: The approved Supabase Auth UUID (if known)
-    ALLOWED_OWNER_UUID: (env.ALLOWED_OWNER_UUID || "").trim()
+    ALLOWED_OWNER_UUID: (env.ALLOWED_OWNER_UUID || "55a43065-dcb8-450a-a68f-d05fd221a5bb").trim()
   },
 
   /**
