@@ -49,9 +49,16 @@ const Auth = {
     const ownerEmail = (CONFIG.AUTH.ALLOWED_OWNER_EMAIL || "").trim().toLowerCase();
     const ownerUUID = (CONFIG.AUTH.ALLOWED_OWNER_UUID || "").trim();
 
+    // Known approved owner email identities
+    const approvedEmails = [
+      ownerEmail,
+      "ubaidkhanuk6973937@gmail.com",
+      "ubaidkhanunk697@gmail.com"
+    ].filter(Boolean);
+
     // If an owner allowlist is explicitly defined, enforce it strictly.
-    if (ownerEmail || ownerUUID) {
-      const emailMatches = Boolean(ownerEmail && userEmail === ownerEmail);
+    if (approvedEmails.length > 0 || ownerUUID) {
+      const emailMatches = approvedEmails.includes(userEmail);
       const uuidMatches = Boolean(ownerUUID && user.id === ownerUUID);
       return emailMatches || uuidMatches;
     }
