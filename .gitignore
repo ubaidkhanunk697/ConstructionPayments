@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Environment files containing credentials
+js/env.js
+.env
+.env.local
+
+# OS Files
+.DS_Store
+Thumbs.db

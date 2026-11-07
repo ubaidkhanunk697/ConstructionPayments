@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Construction Material & Payment Management System</title>
+  
+  <!-- Favicon / Meta -->
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="alternate icon" href="assets/favicon.svg">
+  <meta name="description" content="Construction Material & Payment Management System for house construction project with strict single-owner security.">
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Supabase Official JavaScript Client SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Modular Stylesheets (Guaranteed compatibility with file:// and http://) -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/modals.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/style.css">
+  
+  <style>
+    .gateway-body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: radial-gradient(circle at 10% 20%, #E2ECF5 0%, #F0F4F8 90%);
+      padding: var(--space-4);
+    }
+    .gateway-card {
+      max-width: 520px;
+      width: 100%;
+      text-align: center;
+      padding: var(--space-8) var(--space-6);
+    }
+    .gateway-icon-badge {
+      width: 64px;
+      height: 64px;
+      border-radius: var(--radius-xl);
+      background: linear-gradient(135deg, var(--color-primary), #1D4ED8);
+      color: var(--color-text-white);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--space-4);
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+    }
+    .security-badge-group {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      margin: var(--space-4) 0 var(--space-6);
+    }
+  </style>
+</head>
+<body class="gateway-body">
+
+  <div class="card-glass gateway-card">
+    <div class="gateway-icon-badge">
+      <i data-lucide="building-2" style="width: 32px; height: 32px;"></i>
+    </div>
+
+    <h1 style="font-size: var(--font-size-xl); margin-bottom: var(--space-2);">
+      Construction Material &amp; Payment System
+    </h1>
+    <p style="margin-bottom: var(--space-4);">
+      Dedicated single-house construction material tracking, automated payment calculations, and financial controls in Pakistani Rupees (PKR).
+    </p>
+
+    <div class="security-badge-group">
+      <span class="badge badge-paid">
+        <i data-lucide="shield-check" style="width: 13px; height: 13px;"></i>
+        Single-Owner Protected
+      </span>
+      <span class="badge badge-unit">
+        <i data-lucide="lock" style="width: 13px; height: 13px;"></i>
+        Row Level Security (RLS)
+      </span>
+      <span class="badge badge-unit">
+        <i data-lucide="coins" style="width: 13px; height: 13px;"></i>
+        PKR Currency
+      </span>
+    </div>
+
+    <div class="flex flex-col gap-3">
+      <a href="dashboard.html" class="btn btn-primary btn-lg">
+        <i data-lucide="layout-dashboard"></i>
+        Enter Project Dashboard
+      </a>
+      <a href="login.html" class="btn btn-secondary">
+        <i data-lucide="log-in"></i>
+        Owner Login Portal
+      </a>
+    </div>
+
+    <div style="margin-top: var(--space-6); font-size: var(--font-size-xs); color: var(--color-text-dim);">
+      House Construction Project &bull; Security Verified &bull; Vanilla Stack
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/env.js" onerror="/* env.js is optional; fallback to config.js */"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+
+    // Auto-check session: if authorized owner, redirect to dashboard
+    document.addEventListener("DOMContentLoaded", async () => {
+      if (CONFIG.isConfigured()) {
+        await Auth.redirectIfAuthenticated();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+/* ==========================================================================
+   CONSTRUCTION MATERIAL & PAYMENT MANAGEMENT SYSTEM
+   CUSTOM MODALS & CONFIRMATION DIALOGS
+   ========================================================================== */
+
+/* Modal Root Overlay Backdrop */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: var(--z-index-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-fast), visibility var(--transition-fast);
+  overflow-y: auto;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Modal Dialog Box */
+.modal-container {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-modal);
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: scale(0.96) translateY(8px);
+  transition: transform var(--transition-fast);
+  position: relative;
+}
+
+/* Ensure forms inside modal containers properly flex and scroll */
+.modal-form,
+.modal-container form,
+.modal-container > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+  width: 100%;
+}
+
+.modal-overlay.active .modal-container {
+  transform: scale(1) translateY(0);
+}
+
+.modal-container-sm {
+  max-width: 440px;
+}
+
+.modal-container-lg {
+  max-width: 760px;
+}
+
+/* Modal Header */
+.modal-header {
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.modal-title-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.icon-primary {
+  background-color: var(--color-primary-subtle);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary-border);
+}
+
+.icon-warning {
+  background-color: var(--color-warning-subtle);
+  color: var(--color-warning);
+  border: 1px solid #FDE68A;
+}
+
+.icon-danger {
+  background-color: var(--color-pending-subtle);
+  color: var(--color-pending);
+  border: 1px solid var(--color-pending-border);
+}
+
+.modal-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-main);
+}
+
+.modal-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.modal-close-btn {
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  color: var(--color-text-dim);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.modal-close-btn:hover {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-main);
+}
+
+/* Modal Body */
+.modal-body {
+  padding: var(--space-6);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Form Two Column Grid inside Modal */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* Modal Footer */
+.modal-footer {
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--color-border-subtle);
+  background-color: var(--color-surface-hover);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+}
+
+/* Confirmation Box Details Callout */
+.confirm-callout {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.confirm-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px dashed var(--color-border-subtle);
+}
+
+.confirm-item:last-child {
+  border-bottom: none;
+}
+
+.confirm-label {
+  color: var(--color-text-muted);
+}
+
+.confirm-val {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-main);
+}
+
+/* ==========================================================================
+   PAYMENT MODAL SPECIFIC STYLES
+   ========================================================================== */
+
+/* Payment Context Summary Header */
+.payment-context-card {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.payment-context-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.payment-context-title {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-main);
+}
+
+.payment-context-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.payment-context-item {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.payment-context-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  display: block;
+}
+
+.payment-context-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+/* Payment History List and Items */
+.payment-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.payment-history-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.payment-history-item:hover {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-hover);
+}
+
+.payment-history-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.payment-history-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.payment-history-date {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-main);
+}
+
+.payment-history-notes {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+.payment-history-amount-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.payment-history-amount {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-paid);
+  white-space: nowrap;
+}
+
+.payment-history-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}

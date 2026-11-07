@@ -1,0 +1,1855 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard - Construction Material & Payment Management System</title>
+
+    <meta
+      name="description"
+      content="Manage construction materials, suppliers, payments, and balances with strict financial accuracy."
+    />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+    <link rel="alternate icon" href="assets/favicon.svg" />
+
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- SheetJS (xlsx) Official Library CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- Supabase Official JavaScript Client SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Modular Stylesheets (Guaranteed compatibility with file:// and http://) -->
+    <link rel="stylesheet" href="css/variables.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/components.css" />
+    <link rel="stylesheet" href="css/layout.css" />
+    <link rel="stylesheet" href="css/modals.css" />
+    <link rel="stylesheet" href="css/responsive.css" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!-- Backdrop for Mobile Sidebar Drawer -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+    <div class="app-container">
+      <!-- ====================================================================
+         1. DESKTOP SIDEBAR NAVIGATION
+         ==================================================================== -->
+      <aside id="app-sidebar" class="sidebar">
+        <!-- Sidebar Header -->
+        <div class="sidebar-header">
+          <div class="brand-icon">
+            <i data-lucide="building"></i>
+          </div>
+          <div class="brand-text">
+            <span class="brand-title">House Project</span>
+            <span class="brand-subtitle">Material &amp; Payment</span>
+          </div>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="sidebar-nav">
+          <div class="nav-section-title">Overview</div>
+          <a href="dashboard.html" class="nav-item active">
+            <i data-lucide="layout-dashboard"></i>
+            <span>Dashboard</span>
+          </a>
+          <a href="#materials-section" class="nav-item">
+            <i data-lucide="package"></i>
+            <span>Material Records</span>
+          </a>
+          <a href="#payments-section" class="nav-item">
+            <i data-lucide="credit-card"></i>
+            <span>Payment History</span>
+          </a>
+
+          <div class="nav-section-title">Reports &amp; Tools</div>
+          <a href="#export-section" class="nav-item" id="nav-export-link">
+            <i data-lucide="file-spreadsheet"></i>
+            <span>Excel Export</span>
+          </a>
+          <a href="login.html" class="nav-item">
+            <i data-lucide="shield"></i>
+            <span>Security &amp; RLS</span>
+          </a>
+        </nav>
+
+        <!-- Sidebar Footer (Owner Identity Status) -->
+        <div class="sidebar-footer">
+          <div class="owner-badge">
+            <div class="owner-avatar" id="sidebar-owner-avatar">O</div>
+            <div class="owner-info">
+              <span class="owner-name" id="sidebar-owner-name"
+                >Authorized Owner</span
+              >
+              <span class="owner-role">
+                <span class="owner-status-dot"></span>
+                <span id="sidebar-owner-email">Owner Authenticated</span>
+              </span>
+            </div>
+            <button
+              type="button"
+              id="logout-btn"
+              data-alias="btn-sidebar-logout"
+              title="Sign out of system"
+              class="btn-ghost"
+              style="padding: 6px; border-radius: 6px; cursor: pointer"
+              aria-label="Sign out"
+            >
+              <i data-lucide="log-out" style="width: 16px; height: 16px"></i>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ====================================================================
+         2. MAIN WRAPPER (TOPBAR + CONTENT)
+         ==================================================================== -->
+      <div class="main-wrapper">
+        <!-- Top Navigation Header -->
+        <header class="top-header">
+          <div class="header-left">
+            <!-- Mobile Menu Drawer Toggle -->
+            <button
+              type="button"
+              id="menu-toggle-btn"
+              class="menu-toggle-btn"
+              aria-label="Toggle navigation menu"
+            >
+              <i data-lucide="menu"></i>
+            </button>
+
+            <!-- Live Date & Day Badge (Pakistan / Local Date) -->
+            <div class="header-date-badge">
+              <i
+                data-lucide="calendar"
+                style="width: 14px; height: 14px; color: var(--color-primary)"
+              ></i>
+              <span id="header-live-date">--</span>
+              <span style="color: var(--color-border)">&bull;</span>
+              <strong id="header-live-day">--</strong>
+            </div>
+          </div>
+
+          <div class="header-right">
+            <!-- Excel Export Action -->
+            <button
+              type="button"
+              id="btn-export-excel"
+              class="btn btn-secondary"
+            >
+              <i data-lucide="download"></i>
+              <span class="btn-label-responsive">Download Excel</span>
+            </button>
+
+            <!-- Primary Add Material Button -->
+            <button
+              type="button"
+              id="btn-add-material-header"
+              class="btn btn-primary"
+            >
+              <i data-lucide="plus"></i>
+              <span>Add Material</span>
+            </button>
+          </div>
+        </header>
+
+        <!-- Main Page Content Area -->
+        <main class="page-content">
+          <!-- Status & Configuration Banner Container -->
+          <div id="dashboard-alert-banner"></div>
+
+          <!-- Page Title & Quick Subtitle -->
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 id="dashboard-heading">Welcome to Owner Dashboard</h1>
+              <p>
+                Single House Construction &bull; All amounts in Pakistani Rupees
+                (PKR)
+              </p>
+            </div>
+            <div class="page-actions">
+              <span class="badge badge-paid">
+                <i data-lucide="check" style="width: 12px; height: 12px"></i>
+                PKR Currency Verified
+              </span>
+              <span class="badge badge-unit">
+                <i data-lucide="database" style="width: 12px; height: 12px"></i>
+                Supabase Ready
+              </span>
+            </div>
+          </div>
+
+          <!-- ==================================================================
+             3. FINANCIAL SUMMARY METRIC CARDS (4 Summary Cards)
+             ================================================================== -->
+          <section class="metric-grid" aria-label="Financial Summary Cards">
+            <!-- Card 1: Total Amount Due (Dark / Black) -->
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Total Amount Due</span>
+                <div class="metric-icon-badge metric-icon-total">
+                  <i data-lucide="receipt"></i>
+                </div>
+              </div>
+              <div class="metric-value-wrap">
+                <span class="metric-currency">PKR</span>
+                <span
+                  class="metric-value metric-value-total"
+                  id="metric-total-due"
+                  >Rs. 0</span
+                >
+              </div>
+              <div class="metric-footer">
+                <i data-lucide="info" style="width: 12px; height: 12px"></i>
+                <span>Total aggregate of all materials purchased</span>
+              </div>
+            </div>
+
+            <!-- Card 2: Total Paid (Green) -->
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Total Paid</span>
+                <div class="metric-icon-badge metric-icon-paid">
+                  <i data-lucide="check-circle-2"></i>
+                </div>
+              </div>
+              <div class="metric-value-wrap">
+                <span class="metric-currency">PKR</span>
+                <span
+                  class="metric-value metric-value-paid"
+                  id="metric-total-paid"
+                  >Rs. 0</span
+                >
+              </div>
+              <div class="metric-footer">
+                <i
+                  data-lucide="arrow-down-left"
+                  style="width: 12px; height: 12px; color: var(--color-paid)"
+                ></i>
+                <span>Verified disbursed payments</span>
+              </div>
+            </div>
+
+            <!-- Card 3: Total Pending (Red) -->
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Total Pending</span>
+                <div class="metric-icon-badge metric-icon-pending">
+                  <i data-lucide="clock"></i>
+                </div>
+              </div>
+              <div class="metric-value-wrap">
+                <span class="metric-currency">PKR</span>
+                <span
+                  class="metric-value metric-value-pending"
+                  id="metric-total-pending"
+                  >Rs. 0</span
+                >
+              </div>
+              <div class="metric-footer">
+                <i
+                  data-lucide="alert-circle"
+                  style="width: 12px; height: 12px; color: var(--color-pending)"
+                ></i>
+                <span>Outstanding balance due to suppliers</span>
+              </div>
+            </div>
+
+            <!-- Card 4: Total Material Records (Blue) -->
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Material Records</span>
+                <div class="metric-icon-badge metric-icon-records">
+                  <i data-lucide="package"></i>
+                </div>
+              </div>
+              <div class="metric-value-wrap">
+                <span class="metric-currency">Items</span>
+                <span
+                  class="metric-value metric-value-records"
+                  id="metric-total-records"
+                  >0</span
+                >
+              </div>
+              <div class="metric-footer">
+                <i
+                  data-lucide="layers"
+                  style="width: 12px; height: 12px; color: var(--color-primary)"
+                ></i>
+                <span>Active construction material entries</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==================================================================
+             4. MATERIAL RECORDS SECTION (TABLE + MOBILE CARDS)
+             ================================================================== -->
+          <section
+            id="materials-section"
+            class="card"
+            style="margin-bottom: var(--space-6)"
+          >
+            <div
+              class="flex items-center justify-between"
+              style="
+                margin-bottom: var(--space-4);
+                flex-wrap: wrap;
+                gap: var(--space-3);
+              "
+            >
+              <div>
+                <h2 style="font-size: var(--font-size-md)">
+                  Material &amp; Procurement Records
+                </h2>
+                <p style="font-size: var(--font-size-xs)">
+                  Detailed view of suppliers, material quantities, payments, and
+                  balances.
+                </p>
+              </div>
+              <div
+                class="page-actions"
+                style="display: flex; align-items: center; gap: var(--space-2)"
+              >
+                <span id="filtered-records-count" class="badge badge-unit"
+                  >0 records</span
+                >
+                <button
+                  type="button"
+                  id="btn-export-excel-toolbar"
+                  class="btn btn-secondary btn-sm"
+                  title="Download all records as Excel"
+                >
+                  <i
+                    data-lucide="file-spreadsheet"
+                    style="width: 14px; height: 14px; color: var(--color-paid)"
+                  ></i>
+                  <span>Download Excel</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Filter, Search & Sort Toolbar -->
+            <div
+              class="materials-filter-toolbar"
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: var(--space-3);
+                margin-bottom: var(--space-4);
+                background: var(--color-bg-primary);
+                padding: var(--space-3);
+                border-radius: var(--radius-md);
+                border: 1px solid var(--color-border);
+              "
+            >
+              <div
+                class="flex items-center gap-2"
+                style="flex: 1; min-width: 240px"
+              >
+                <div class="input-with-icon" style="width: 100%">
+                  <i
+                    data-lucide="search"
+                    class="input-icon-left"
+                    style="width: 16px; height: 16px"
+                  ></i>
+                  <input
+                    type="text"
+                    id="filter-search-input"
+                    class="form-input"
+                    placeholder="Search person name, notes..."
+                    style="padding-top: 0.45rem; padding-bottom: 0.45rem"
+                  />
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2" style="flex-wrap: wrap">
+                <!-- Material Type Filter -->
+                <div style="min-width: 160px">
+                  <select
+                    id="filter-material-type"
+                    class="form-select"
+                    style="
+                      padding-top: 0.45rem;
+                      padding-bottom: 0.45rem;
+                      font-size: var(--font-size-xs);
+                    "
+                  >
+                    <option value="">All Material Types</option>
+                  </select>
+                </div>
+
+                <!-- Date Filter -->
+                <div style="min-width: 140px">
+                  <input
+                    type="date"
+                    id="filter-date"
+                    class="form-input"
+                    title="Filter by purchase date"
+                    style="
+                      padding-top: 0.45rem;
+                      padding-bottom: 0.45rem;
+                      font-size: var(--font-size-xs);
+                    "
+                  />
+                </div>
+
+                <!-- Sort Order Dropdown (Newest vs Oldest) -->
+                <div style="min-width: 130px">
+                  <select
+                    id="filter-sort"
+                    class="form-select"
+                    style="
+                      padding-top: 0.45rem;
+                      padding-bottom: 0.45rem;
+                      font-size: var(--font-size-xs);
+                    "
+                  >
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                  </select>
+                </div>
+
+                <!-- Reset Filters -->
+                <button
+                  type="button"
+                  id="btn-reset-filters"
+                  class="btn btn-secondary btn-sm"
+                  title="Reset all filters"
+                >
+                  <i
+                    data-lucide="rotate-ccw"
+                    style="width: 13px; height: 13px"
+                  ></i>
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            <!-- Desktop / Tablet Data Table Container -->
+            <div class="desktop-table-container table-responsive">
+              <table class="data-table" id="materials-data-table">
+                <thead>
+                  <tr>
+                    <th class="col-date">Date &amp; Day</th>
+                    <th class="col-person">Person Name</th>
+                    <th class="col-material">Material Type</th>
+                    <th class="col-quantity">Quantity</th>
+                    <th class="col-due text-right">Total Due</th>
+                    <th class="col-paid text-right">Paid</th>
+                    <th class="col-pending text-right">Pending</th>
+                    <th class="col-status text-center">Status</th>
+                    <th class="col-actions text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="materials-table-body">
+                  <!-- Dynamically populated or empty state -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Mobile Responsive Cards View (Shown on screens < 768px) -->
+            <div class="mobile-cards-view" id="materials-mobile-cards">
+              <!-- Dynamically populated or empty state -->
+            </div>
+
+            <!-- Empty State Container (Displayed when records = 0) -->
+            <div id="materials-empty-state" class="empty-state">
+              <div class="empty-state-icon">
+                <i
+                  data-lucide="package-open"
+                  style="width: 28px; height: 28px"
+                ></i>
+              </div>
+              <h3 class="empty-state-title">No Material Records Yet</h3>
+              <p class="empty-state-desc">
+                Your house construction ledger is currently empty. Click the
+                button below to add your first material record.
+              </p>
+              <button
+                type="button"
+                id="btn-add-material-empty"
+                class="btn btn-primary"
+              >
+                <i data-lucide="plus"></i>
+                <span>Add First Material Record</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- ==================================================================
+             5. OVERVIEW PANELS (PAYMENTS & PENDING BREAKDOWN)
+             ================================================================== -->
+          <div
+            class="grid"
+            style="
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+              gap: var(--space-4);
+            "
+            id="payments-section"
+          >
+            <!-- Recent Payments Panel -->
+            <div class="card-glass">
+              <div
+                class="flex items-center justify-between"
+                style="margin-bottom: var(--space-3)"
+              >
+                <h3
+                  style="
+                    font-size: var(--font-size-base);
+                    display: flex;
+                    align-items: center;
+                    gap: var(--space-2);
+                  "
+                >
+                  <i
+                    data-lucide="arrow-down-circle"
+                    style="color: var(--color-paid); width: 18px; height: 18px"
+                  ></i>
+                  Payment Overview
+                </h3>
+                <span class="badge badge-paid">Recent Activity</span>
+              </div>
+              <p
+                style="
+                  font-size: var(--font-size-xs);
+                  margin-bottom: var(--space-4);
+                "
+              >
+                Latest payment transactions attached to material records.
+              </p>
+              <div id="recent-payments-container">
+                <div
+                  class="empty-state"
+                  style="padding: var(--space-6) var(--space-2)"
+                >
+                  <i
+                    data-lucide="receipt"
+                    style="
+                      width: 24px;
+                      height: 24px;
+                      color: var(--color-text-dim);
+                      margin-bottom: var(--space-2);
+                    "
+                  ></i>
+                  <span
+                    style="
+                      font-size: var(--font-size-xs);
+                      color: var(--color-text-muted);
+                    "
+                    >No payment transactions recorded yet.</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Pending Balances Panel -->
+            <div class="card-glass">
+              <div
+                class="flex items-center justify-between"
+                style="margin-bottom: var(--space-3)"
+              >
+                <h3
+                  style="
+                    font-size: var(--font-size-base);
+                    display: flex;
+                    align-items: center;
+                    gap: var(--space-2);
+                  "
+                >
+                  <i
+                    data-lucide="alert-circle"
+                    style="
+                      color: var(--color-pending);
+                      width: 18px;
+                      height: 18px;
+                    "
+                  ></i>
+                  Pending Payment Overview
+                </h3>
+                <span class="badge badge-pending">Top Outstanding</span>
+              </div>
+              <p
+                style="
+                  font-size: var(--font-size-xs);
+                  margin-bottom: var(--space-4);
+                "
+              >
+                Highest outstanding balances awaiting payment clearance.
+              </p>
+              <div id="pending-payments-container">
+                <div
+                  class="empty-state"
+                  style="padding: var(--space-6) var(--space-2)"
+                >
+                  <i
+                    data-lucide="wallet"
+                    style="
+                      width: 24px;
+                      height: 24px;
+                      color: var(--color-text-dim);
+                      margin-bottom: var(--space-2);
+                    "
+                  ></i>
+                  <span
+                    style="
+                      font-size: var(--font-size-xs);
+                      color: var(--color-text-muted);
+                    "
+                    >No pending balances at this time.</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Monthly Expenditure Analytics Chart Card -->
+          <div class="card" style="margin-top: var(--space-6)">
+            <div
+              class="flex items-center justify-between"
+              style="
+                margin-bottom: var(--space-4);
+                flex-wrap: wrap;
+                gap: var(--space-2);
+              "
+            >
+              <div>
+                <h3
+                  style="
+                    font-size: var(--font-size-base);
+                    display: flex;
+                    align-items: center;
+                    gap: var(--space-2);
+                  "
+                >
+                  <i
+                    data-lucide="bar-chart-3"
+                    style="
+                      color: var(--color-primary);
+                      width: 18px;
+                      height: 18px;
+                    "
+                  ></i>
+                  Monthly Financial Trends
+                </h3>
+                <p style="font-size: var(--font-size-xs)">
+                  Comparison of Total Due vs Paid amounts across construction
+                  months.
+                </p>
+              </div>
+              <span class="badge badge-unit">Chart.js Analytics</span>
+            </div>
+            <div style="position: relative; height: 260px; width: 100%">
+              <canvas id="monthly-chart-canvas"></canvas>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+       6. MOBILE BOTTOM NAVIGATION (Quick touch access on phones)
+       ==================================================================== -->
+    <nav class="mobile-bottom-nav">
+      <a href="dashboard.html" class="mobile-nav-link active">
+        <i data-lucide="layout-dashboard" style="width: 20px; height: 20px"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#materials-section" class="mobile-nav-link">
+        <i data-lucide="package" style="width: 20px; height: 20px"></i>
+        <span>Materials</span>
+      </a>
+      <a href="#payments-section" class="mobile-nav-link">
+        <i data-lucide="credit-card" style="width: 20px; height: 20px"></i>
+        <span>Payments</span>
+      </a>
+      <a href="login.html" class="mobile-nav-link">
+        <i data-lucide="shield" style="width: 20px; height: 20px"></i>
+        <span>Security</span>
+      </a>
+    </nav>
+
+    <!-- ====================================================================
+       7. MODALS & CONFIRMATION DIALOGS
+       ==================================================================== -->
+
+    <!-- A. Add / Edit Material Record Modal -->
+    <div
+      id="modal-material-form"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="material-form-title"
+    >
+      <div class="modal-container">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <div class="modal-title-icon icon-primary">
+              <i data-lucide="package-plus"></i>
+            </div>
+            <div>
+              <h2 class="modal-title" id="material-form-title">
+                Add Material Record
+              </h2>
+              <p class="modal-subtitle">
+                Record construction material procurement details
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="modal-close-btn"
+            data-close-modal="modal-material-form"
+            aria-label="Close dialog"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <form id="material-record-form" class="modal-form">
+          <div class="modal-body">
+            <!-- Field 1: Person Name -->
+            <div class="form-group">
+              <label for="material-person" class="form-label"
+                >Person Name (Supplier / Driver / Contractor)</label
+              >
+              <input
+                type="text"
+                id="material-person"
+                class="form-input"
+                placeholder="Enter Owner Name"
+                autocomplete="off"
+              />
+              <span class="form-helper"
+                >Name of supplier, seller, or delivery person</span
+              >
+            </div>
+
+            <!-- Field 2: Material Type (Editable with Dropdown Options) -->
+            <div class="form-group">
+              <label for="material-type" class="form-label">Material Type</label>
+              <input
+                type="text"
+                id="material-type"
+                list="material-type-options"
+                class="form-input"
+                placeholder="Select or type material (e.g. Cement, Steel, Sand...)"
+                autocomplete="off"
+              />
+              <datalist id="material-type-options">
+                <option value="Cement (Fauji, Maple Leaf, Lucky, etc.)"></option>
+                <option value="Steel / Sariya (Grade 60 / Grade 40)"></option>
+                <option value="Sand / Rait (Chenab, Ravi, Lawrencepur)"></option>
+                <option value="Bricks / Eint (Awwal, Doem, Bhatta)"></option>
+                <option value="Gravel / Bajri (Margalla, Dina, Sargodha)"></option>
+                <option value="Tiles & Marble"></option>
+                <option value="Sanitary & Plumbing"></option>
+                <option value="Electrical Conduit & Wiring"></option>
+                <option value="Wood & Carpentry"></option>
+                <option value="Paint & Finish"></option>
+                <option value="Labor & Masonry"></option>
+                <option value="Other Material"></option>
+              </datalist>
+              <span class="form-helper">Choose from the dropdown list or type any custom material name</span>
+            </div>
+
+            <!-- Fields 3, 4: Material Quantity & Quantity Unit (Editable with Dropdown) -->
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label for="material-quantity" class="form-label">Material Quantity</label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  id="material-quantity"
+                  class="form-input"
+                  placeholder="e.g. 50, 1000, 2.5"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="material-unit-select" class="form-label">Quantity Unit</label>
+                <input
+                  type="text"
+                  id="material-unit-select"
+                  list="material-unit-options"
+                  class="form-input"
+                  placeholder="Select or type unit (e.g. Bags, Tons...)"
+                  autocomplete="off"
+                />
+                <datalist id="material-unit-options">
+                  <option value="Bags"></option>
+                  <option value="Tons"></option>
+                  <option value="Senkrra"></option>
+                  <option value="Bricks"></option>
+                  <option value="Sariya"></option>
+                  <option value="Trucks"></option>
+                  <option value="Feet"></option>
+                  <option value="Liters"></option>
+                  <option value="Bundles"></option>
+                  <option value="Meters"></option>
+                  <option value="Other"></option>
+                </datalist>
+                <span class="form-helper">Choose from list or type custom unit directly</span>
+              </div>
+            </div>
+
+            <!-- Legacy container kept hidden for backward compatibility -->
+            <div class="form-group hidden" id="custom-unit-group">
+              <input type="hidden" id="material-custom-unit" />
+            </div>
+
+            <!-- Financials: Total Amount Due & Paid Amount Input Fields -->
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label for="material-total-amount" class="form-label">Total Amount Due (PKR)</label>
+                <div class="input-group">
+                  <span class="input-group-addon">PKR</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    id="material-total-amount"
+                    class="form-input tabular-nums text-total-due"
+                    placeholder="0.00"
+                  />
+                </div>
+                <span class="form-helper">Agreed or contract total amount</span>
+              </div>
+
+              <div class="form-group">
+                <label for="material-paid-amount" class="form-label">Paid Amount (PKR)</label>
+                <div class="input-group">
+                  <span class="input-group-addon" style="color: var(--color-paid);">PKR</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    id="material-paid-amount"
+                    class="form-input tabular-nums text-paid"
+                    placeholder="0.00"
+                  />
+                </div>
+                <span class="form-helper">Amount paid immediately</span>
+              </div>
+            </div>
+
+            <!-- Automatically Calculated Pending Balance Display -->
+            <div class="form-group">
+              <label for="material-pending-amount" class="form-label">Pending Balance (PKR)</label>
+              <div class="input-group">
+                <span class="input-group-addon" style="color: var(--color-pending);">PKR</span>
+                <input
+                  type="text"
+                  id="material-pending-amount"
+                  class="form-input tabular-nums text-pending"
+                  readonly
+                  placeholder="0.00"
+                  style="font-weight: var(--font-weight-bold); background-color: var(--color-bg-primary); border-color: var(--color-pending-border);"
+                />
+              </div>
+              <span class="form-helper" id="material-pending-helper">Automatically calculated (Total Amount Due − Paid Amount)</span>
+            </div>
+
+            <!-- Fields 7, 8: Purchase Date (Defaults to today) & Day (Auto-derived) -->
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label for="material-date" class="form-label"
+                  >Purchase Date</label
+                >
+                <input type="date" id="material-date" class="form-input" />
+              </div>
+
+              <div class="form-group">
+                <label for="material-day" class="form-label">Day</label>
+                <input
+                  type="text"
+                  id="material-day"
+                  class="form-input"
+                  readonly
+                  placeholder="Auto-generated day"
+                />
+              </div>
+            </div>
+
+            <!-- Field 9: Optional Notes -->
+            <div class="form-group">
+              <label for="material-notes" class="form-label"
+                >Optional Notes</label
+              >
+              <textarea
+                id="material-notes"
+                class="form-textarea"
+                rows="2"
+                placeholder="e.g. Invoice #4812, Truck plate LES-892, Driver contact Haji Aslam 0300-1234567"
+              ></textarea>
+              <span class="form-helper"
+                >Additional remarks, invoices, or delivery notes
+                (optional)</span
+              >
+            </div>
+          </div>
+
+          <div class="modal-footer" style="display: flex; align-items: center; justify-content: space-between;">
+            <button
+              type="button"
+              id="btn-delete-material-record"
+              class="btn btn-ghost text-pending hidden"
+              style="font-size: var(--font-size-xs); padding: var(--space-2) var(--space-3);"
+            >
+              <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+              <span>Delete Record</span>
+            </button>
+            <div style="display: flex; gap: var(--space-2); margin-left: auto;">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-close-modal="modal-material-form"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                id="btn-submit-material-form"
+                class="btn btn-primary"
+                style="min-width: 170px"
+              >
+                <i data-lucide="check" style="width: 15px; height: 15px"></i>
+                <span id="btn-submit-material-text">Save Material Record</span>
+                <div
+                  id="btn-submit-material-spinner"
+                  class="spinner"
+                  style="
+                    display: none;
+                    width: 16px;
+                    height: 16px;
+                    border-width: 2px;
+                  "
+                ></div>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- B. Strong Confirmation Modal: EDIT RECORD -->
+    <div
+      id="modal-confirm-edit"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-edit-title"
+    >
+      <div class="modal-container modal-container-sm">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <div class="modal-title-icon icon-primary">
+              <i data-lucide="edit-3"></i>
+            </div>
+            <div>
+              <h2 class="modal-title" id="confirm-edit-title">
+                Confirm Record Changes
+              </h2>
+              <p class="modal-subtitle">
+                Review changes before saving to database
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="modal-close-btn"
+            data-close-modal="modal-confirm-edit"
+            aria-label="Close dialog"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <p
+            style="
+              color: var(--color-text-main);
+              font-size: var(--font-size-sm);
+              margin-bottom: var(--space-3);
+              line-height: 1.5;
+            "
+          >
+            You are about to update this construction material record. Please
+            review your changes carefully. The updated information will replace
+            the existing record details.
+          </p>
+
+          <div class="confirm-callout">
+            <div class="confirm-item">
+              <span class="confirm-label">Person Name:</span>
+              <span class="confirm-val" id="confirm-edit-person">--</span>
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Material Type:</span>
+              <span class="confirm-val" id="confirm-edit-material">--</span>
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Quantity &amp; Unit:</span>
+              <span class="confirm-val" id="confirm-edit-quantity">--</span>
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Total Amount Due:</span>
+              <span class="confirm-val text-total-due" id="confirm-edit-total"
+                >--</span
+              >
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Paid Amount:</span>
+              <span class="confirm-val text-paid" id="confirm-edit-paid">--</span>
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Pending Balance:</span>
+              <span class="confirm-val text-pending" id="confirm-edit-pending">--</span>
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Purchase Date:</span>
+              <span class="confirm-val" id="confirm-edit-date">--</span>
+            </div>
+            <div class="confirm-item hidden" id="confirm-edit-notes-item">
+              <span class="confirm-label">Notes:</span>
+              <span
+                class="confirm-val"
+                id="confirm-edit-notes"
+                style="font-size: 11px; max-width: 200px; text-align: right"
+                >--</span
+              >
+            </div>
+          </div>
+
+          <div
+            style="
+              margin-top: var(--space-3);
+              font-size: 11px;
+              color: var(--color-text-dim);
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            "
+          >
+            <i
+              data-lucide="info"
+              style="width: 13px; height: 13px; color: var(--color-primary)"
+            ></i>
+            <span
+              >Paid and Pending amounts remain automatically calculated.</span
+            >
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-close-modal="modal-confirm-edit"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            id="btn-confirm-save-edit"
+            class="btn btn-primary"
+          >
+            <span id="btn-confirm-save-edit-text"
+              >Confirm &amp; Save Changes</span
+            >
+            <div
+              id="btn-confirm-save-edit-spinner"
+              class="spinner"
+              style="
+                display: none;
+                width: 16px;
+                height: 16px;
+                border-width: 2px;
+              "
+            ></div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- C. Strong Confirmation Modal: DELETE RECORD -->
+    <div
+      id="modal-confirm-delete"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-delete-title"
+    >
+      <div class="modal-container modal-container-sm">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <div class="modal-title-icon icon-danger">
+              <i data-lucide="alert-triangle"></i>
+            </div>
+            <div>
+              <h2 class="modal-title" id="confirm-delete-title">
+                Delete Material Record?
+              </h2>
+              <p class="modal-subtitle">
+                Permanent action &bull; Cannot be undone
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="modal-close-btn"
+            data-close-modal="modal-confirm-delete"
+            aria-label="Close dialog"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <p
+            style="
+              color: var(--color-pending-hover);
+              font-size: var(--font-size-sm);
+              margin-bottom: var(--space-3);
+              font-weight: var(--font-weight-medium);
+              line-height: 1.5;
+            "
+          >
+            Warning: You are about to delete this material record. Associated
+            payment history may also be affected. This action cannot be undone.
+          </p>
+
+          <!-- Record Summary Box -->
+          <div
+            class="confirm-callout"
+            style="
+              border-left: 3px solid var(--color-pending);
+              margin-bottom: var(--space-3);
+            "
+          >
+            <div class="confirm-item">
+              <span class="confirm-label">Person Name:</span>
+              <span class="confirm-val" id="confirm-delete-person">--</span>
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Material &amp; Quantity:</span>
+              <span class="confirm-val" id="confirm-delete-material">--</span>
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Total Amount Due:</span>
+              <span class="confirm-val text-total-due" id="confirm-delete-total"
+                >--</span
+              >
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Paid Amount:</span>
+              <span class="confirm-val text-paid" id="confirm-delete-paid"
+                >--</span
+              >
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Pending Balance:</span>
+              <span class="confirm-val text-pending" id="confirm-delete-pending"
+                >--</span
+              >
+            </div>
+          </div>
+
+          <!-- Payment Impact Warning Callout (shown if payments > 0) -->
+          <div
+            id="confirm-delete-payments-box"
+            class="hidden"
+            style="
+              background: var(--color-pending-subtle);
+              border: 1px solid var(--color-pending-border);
+              border-radius: var(--radius-md);
+              padding: var(--space-3);
+              margin-top: var(--space-3);
+            "
+          >
+            <div
+              style="
+                font-size: var(--font-size-xs);
+                color: #991b1b;
+                font-weight: var(--font-weight-semibold);
+                margin-bottom: var(--space-2);
+                display: flex;
+                align-items: center;
+                gap: 4px;
+              "
+            >
+              <i
+                data-lucide="alert-circle"
+                style="width: 14px; height: 14px; flex-shrink: 0"
+              ></i>
+              <span id="confirm-delete-payments-text"
+                >Existing payments detected.</span
+              >
+            </div>
+            <p
+              style="
+                font-size: 11px;
+                color: #7f1d1d;
+                margin-bottom: var(--space-2);
+                line-height: 1.4;
+              "
+            >
+              Because database integrity prevents leaving orphaned payments,
+              deleting this record requires explicit confirmation to permanently
+              remove all associated payment transactions.
+            </p>
+            <label
+              style="
+                display: flex;
+                align-items: flex-start;
+                gap: var(--space-2);
+                font-size: var(--font-size-xs);
+                color: var(--color-text-main);
+                cursor: pointer;
+              "
+            >
+              <input
+                type="checkbox"
+                id="confirm-delete-payments-checkbox"
+                style="margin-top: 2px"
+              />
+              <span
+                >I confirm that I want to delete this material record and purge
+                all associated payments.</span
+              >
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-close-modal="modal-confirm-delete"
+          >
+            Cancel
+          </button>
+          <button type="button" id="btn-confirm-delete" class="btn btn-danger">
+            <i data-lucide="trash-2"></i>
+            <span id="btn-confirm-delete-text">Yes, Delete Record</span>
+            <div
+              id="btn-confirm-delete-spinner"
+              class="spinner"
+              style="
+                display: none;
+                width: 16px;
+                height: 16px;
+                border-width: 2px;
+                border-color: rgba(255, 255, 255, 0.4);
+                border-top-color: #fff;
+              "
+            ></div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- D. Add / Edit Payment Modal -->
+    <div
+      id="modal-payment-form"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="payment-form-title"
+    >
+      <div class="modal-container">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <div
+              class="modal-title-icon icon-primary"
+              style="
+                background-color: var(--color-paid-subtle);
+                color: var(--color-paid);
+                border-color: var(--color-paid-border);
+              "
+            >
+              <i data-lucide="banknote"></i>
+            </div>
+            <div>
+              <h2 class="modal-title" id="payment-form-title">
+                Record Payment
+              </h2>
+              <p class="modal-subtitle">
+                Attach a payment transaction to this material record
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="modal-close-btn"
+            data-close-modal="modal-payment-form"
+            aria-label="Close dialog"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <form id="payment-record-form" class="modal-form">
+          <div class="modal-body">
+            <!-- Parent Material Context Summary -->
+            <div class="payment-context-card">
+              <div class="payment-context-header">
+                <span class="payment-context-title" id="payment-parent-name"
+                  >Supplier / Material</span
+                >
+                <span class="badge badge-unit" id="payment-parent-material"
+                  >Material</span
+                >
+              </div>
+              <div class="payment-context-grid">
+                <div class="payment-context-item">
+                  <span class="payment-context-label">Total Due</span>
+                  <span
+                    class="payment-context-value text-total-due"
+                    id="payment-parent-due"
+                    >Rs. 0</span
+                  >
+                </div>
+                <div class="payment-context-item">
+                  <span class="payment-context-label">Already Paid</span>
+                  <span
+                    class="payment-context-value text-paid"
+                    id="payment-parent-paid"
+                    >Rs. 0</span
+                  >
+                </div>
+                <div class="payment-context-item">
+                  <span class="payment-context-label">Outstanding</span>
+                  <span
+                    class="payment-context-value text-pending"
+                    id="payment-parent-pending"
+                    >Rs. 0</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Field 1: Payment Amount (PKR) (Required) -->
+            <div class="form-group">
+              <label for="payment-amount" class="form-label"
+                >Payment Amount (PKR) <span class="required">*</span></label
+              >
+              <div class="input-group">
+                <span class="input-group-addon">PKR</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  id="payment-amount"
+                  class="form-input tabular-nums"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+              <span class="form-helper" id="payment-amount-helper"
+                >Must be greater than zero and cannot exceed outstanding
+                balance.</span
+              >
+            </div>
+
+            <!-- Field 2: Payment Date (Defaults to Today) -->
+            <div class="form-group">
+              <label for="payment-date" class="form-label"
+                >Payment Date <span class="required">*</span></label
+              >
+              <input
+                type="date"
+                id="payment-date"
+                class="form-input"
+                required
+              />
+              <span class="form-helper">Date when payment was made</span>
+            </div>
+
+            <!-- Field 3: Payment Method -->
+            <div class="form-group">
+              <label for="payment-method" class="form-label"
+                >Payment Method</label
+              >
+              <select id="payment-method" class="form-select">
+                <option value="Cash">Cash</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Cheque">Cheque</option>
+                <option value="Online / Raast">Online / Raast</option>
+                <option value="Other">Other</option>
+              </select>
+              <span class="form-helper">Method used to disburse funds</span>
+            </div>
+
+            <!-- Field 4: Notes (Optional) -->
+            <div class="form-group">
+              <label for="payment-notes" class="form-label"
+                >Payment Notes (Optional)</label
+              >
+              <textarea
+                id="payment-notes"
+                class="form-textarea"
+                rows="2"
+                placeholder="e.g. Bank slip #98231, HBL transfer, received by Aslam personally"
+              ></textarea>
+              <span class="form-helper"
+                >Reference number, receipt ID, or transaction details</span
+              >
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-close-modal="modal-payment-form"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              id="btn-submit-payment-form"
+              class="btn btn-primary"
+            >
+              <i data-lucide="check" style="width: 15px; height: 15px"></i>
+              <span id="btn-submit-payment-text">Save Payment</span>
+              <div
+                id="btn-submit-payment-spinner"
+                class="spinner"
+                style="
+                  display: none;
+                  width: 16px;
+                  height: 16px;
+                  border-width: 2px;
+                "
+              ></div>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- E. Payment History Modal -->
+    <div
+      id="modal-payment-history"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="payment-history-title"
+    >
+      <div class="modal-container modal-container-lg">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <div class="modal-title-icon icon-primary">
+              <i data-lucide="receipt"></i>
+            </div>
+            <div>
+              <h2 class="modal-title" id="payment-history-title">
+                Payment History
+              </h2>
+              <p class="modal-subtitle">
+                All disbursement transactions for this material record
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="modal-close-btn"
+            data-close-modal="modal-payment-history"
+            aria-label="Close dialog"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Parent Record Summary Bar & Quick Add Button -->
+          <div
+            class="payment-context-card"
+            style="margin-bottom: var(--space-3)"
+          >
+            <div class="payment-context-header">
+              <div>
+                <span class="payment-context-title" id="history-parent-name"
+                  >--</span
+                >
+                <span
+                  class="badge badge-unit"
+                  id="history-parent-material"
+                  style="margin-left: var(--space-2)"
+                  >--</span
+                >
+              </div>
+              <button
+                type="button"
+                id="btn-history-add-payment"
+                class="btn btn-primary btn-sm"
+              >
+                <i data-lucide="plus" style="width: 13px; height: 13px"></i>
+                Add Payment
+              </button>
+            </div>
+            <div class="payment-context-grid">
+              <div class="payment-context-item">
+                <span class="payment-context-label">Total Due</span>
+                <span
+                  class="payment-context-value text-total-due"
+                  id="history-parent-due"
+                  >Rs. 0</span
+                >
+              </div>
+              <div class="payment-context-item">
+                <span class="payment-context-label">Total Paid</span>
+                <span
+                  class="payment-context-value text-paid"
+                  id="history-parent-paid"
+                  >Rs. 0</span
+                >
+              </div>
+              <div class="payment-context-item">
+                <span class="payment-context-label">Outstanding Balance</span>
+                <span
+                  class="payment-context-value text-pending"
+                  id="history-parent-pending"
+                  >Rs. 0</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment Transactions List Container -->
+          <div
+            id="payment-history-items-container"
+            class="payment-history-list"
+          >
+            <!-- Dynamically populated -->
+          </div>
+
+          <!-- Empty State for History -->
+          <div
+            id="payment-history-empty"
+            class="empty-state hidden"
+            style="padding: var(--space-6) var(--space-2)"
+          >
+            <i
+              data-lucide="receipt"
+              style="
+                width: 32px;
+                height: 32px;
+                color: var(--color-text-dim);
+                margin-bottom: var(--space-2);
+              "
+            ></i>
+            <h4
+              style="
+                font-size: var(--font-size-sm);
+                color: var(--color-text-main);
+                margin-bottom: var(--space-1);
+              "
+            >
+              No Payments Recorded Yet
+            </h4>
+            <p
+              style="
+                font-size: var(--font-size-xs);
+                color: var(--color-text-muted);
+                margin-bottom: var(--space-4);
+              "
+            >
+              No payments have been disbursed for this material purchase yet.
+            </p>
+            <button
+              type="button"
+              id="btn-history-empty-add"
+              class="btn btn-primary btn-sm"
+            >
+              <i data-lucide="plus"></i>
+              Record First Payment
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-close-modal="modal-payment-history"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- F. Strong Confirmation Modal: EDIT PAYMENT -->
+    <div
+      id="modal-confirm-payment-edit"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-payment-edit-title"
+    >
+      <div class="modal-container modal-container-sm">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <div class="modal-title-icon icon-primary">
+              <i data-lucide="edit-3"></i>
+            </div>
+            <div>
+              <h2 class="modal-title" id="confirm-payment-edit-title">
+                Confirm Payment Changes
+              </h2>
+              <p class="modal-subtitle">
+                Review transaction changes before updating
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="modal-close-btn"
+            data-close-modal="modal-confirm-payment-edit"
+            aria-label="Close dialog"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <p
+            style="
+              color: var(--color-text-main);
+              font-size: var(--font-size-sm);
+              margin-bottom: var(--space-3);
+              line-height: 1.5;
+            "
+          >
+            You are about to update this payment transaction. This will
+            automatically recalculate the paid and pending balances for the
+            parent material record.
+          </p>
+
+          <div class="confirm-callout">
+            <div class="confirm-item">
+              <span class="confirm-label">Previous Amount:</span>
+              <span
+                class="confirm-val text-dim"
+                id="confirm-payment-edit-old-amount"
+                >--</span
+              >
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">New Amount:</span>
+              <span
+                class="confirm-val text-paid"
+                id="confirm-payment-edit-new-amount"
+                >--</span
+              >
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Payment Date:</span>
+              <span class="confirm-val" id="confirm-payment-edit-date">--</span>
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Payment Method:</span>
+              <span class="confirm-val" id="confirm-payment-edit-method"
+                >--</span
+              >
+            </div>
+            <div
+              class="confirm-item hidden"
+              id="confirm-payment-edit-notes-item"
+            >
+              <span class="confirm-label">Notes:</span>
+              <span
+                class="confirm-val"
+                id="confirm-payment-edit-notes"
+                style="font-size: 11px; max-width: 200px; text-align: right"
+                >--</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-close-modal="modal-confirm-payment-edit"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            id="btn-confirm-save-payment-edit"
+            class="btn btn-primary"
+          >
+            <span id="btn-confirm-save-payment-edit-text"
+              >Confirm &amp; Save Changes</span
+            >
+            <div
+              id="btn-confirm-save-payment-edit-spinner"
+              class="spinner"
+              style="
+                display: none;
+                width: 16px;
+                height: 16px;
+                border-width: 2px;
+              "
+            ></div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- G. Strong Confirmation Modal: DELETE PAYMENT -->
+    <div
+      id="modal-confirm-delete-payment"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-delete-payment-title"
+    >
+      <div class="modal-container modal-container-sm">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <div class="modal-title-icon icon-danger">
+              <i data-lucide="alert-triangle"></i>
+            </div>
+            <div>
+              <h2 class="modal-title" id="confirm-delete-payment-title">
+                Delete Payment?
+              </h2>
+              <p class="modal-subtitle">
+                Permanent action &bull; Recalculates balance
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="modal-close-btn"
+            data-close-modal="modal-confirm-delete-payment"
+            aria-label="Close dialog"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <p
+            style="
+              color: var(--color-pending-hover);
+              font-size: var(--font-size-sm);
+              margin-bottom: var(--space-3);
+              font-weight: var(--font-weight-medium);
+              line-height: 1.5;
+            "
+          >
+            Warning: You are about to permanently delete this payment
+            transaction. This action cannot be undone and will increase the
+            outstanding pending balance for this material record.
+          </p>
+
+          <div
+            class="confirm-callout"
+            style="border-left: 3px solid var(--color-pending)"
+          >
+            <div class="confirm-item">
+              <span class="confirm-label">Payment Amount:</span>
+              <span
+                class="confirm-val text-paid"
+                id="confirm-delete-payment-amount"
+                >--</span
+              >
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Payment Date:</span>
+              <span class="confirm-val" id="confirm-delete-payment-date"
+                >--</span
+              >
+            </div>
+            <div class="confirm-item">
+              <span class="confirm-label">Payment Method:</span>
+              <span class="confirm-val" id="confirm-delete-payment-method"
+                >--</span
+              >
+            </div>
+            <div
+              class="confirm-item hidden"
+              id="confirm-delete-payment-notes-item"
+            >
+              <span class="confirm-label">Notes:</span>
+              <span
+                class="confirm-val"
+                id="confirm-delete-payment-notes"
+                style="font-size: 11px; max-width: 200px; text-align: right"
+                >--</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-close-modal="modal-confirm-delete-payment"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            id="btn-confirm-delete-payment"
+            class="btn btn-danger"
+          >
+            <i data-lucide="trash-2"></i>
+            <span id="btn-confirm-delete-payment-text"
+              >Yes, Delete Payment</span
+            >
+            <div
+              id="btn-confirm-delete-payment-spinner"
+              class="spinner"
+              style="
+                display: none;
+                width: 16px;
+                height: 16px;
+                border-width: 2px;
+                border-color: rgba(255, 255, 255, 0.4);
+                border-top-color: #fff;
+              "
+            ></div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+       8. TOAST NOTIFICATION CONTAINER
+       ==================================================================== -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script
+      src="js/env.js"
+      onerror="/* env.js is optional; fallback to config.js */"
+    ></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/export.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
