@@ -294,9 +294,10 @@
 
   <!-- Configuration & Authentication Scripts -->
   <script src="js/env.js" onerror="/* env.js is optional; fallback to config.js */"></script>
-  <script src="js/config.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/auth.js"></script>
+  <script src="js/config.js?v=2.2"></script>
+  <script src="js/supabaseClient.js?v=2.2"></script>
+  <script src="js/ui.js?v=2.2"></script>
+  <script src="js/auth.js?v=2.2"></script>
 
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
@@ -387,7 +388,9 @@
       }
 
       // If user is already authenticated and authorized, redirect immediately to dashboard
-      await Auth.redirectIfAuthenticated();
+      if (typeof Auth !== "undefined" && typeof Auth.redirectIfAuthenticated === "function") {
+        await Auth.redirectIfAuthenticated();
+      }
 
       // Handle Login Form Submission
       if (form) {
@@ -395,19 +398,22 @@
           e.preventDefault();
           clearAlert();
 
-          const email = emailInput.value.trim().toLowerCase();
-          const password = passwordInput.value;
+          const emailInputEl = document.querySelector('input[type="email"]') || document.getElementById("login-email");
+          const passwordInputEl = document.querySelector('input[type="password"]') || document.getElementById("login-password");
+
+          const email = (emailInputEl ? emailInputEl.value : "").trim();
+          const password = passwordInputEl ? passwordInputEl.value : "";
 
           // 1. Missing fields check
           if (!email) {
             showAlert("danger", "Email Required", "Please enter your registered email address.");
-            emailInput.focus();
+            if (emailInputEl) emailInputEl.focus();
             return;
           }
 
           if (!password) {
             showAlert("danger", "Password Required", "Please enter your password.");
-            passwordInput.focus();
+            if (passwordInputEl) passwordInputEl.focus();
             return;
           }
 
@@ -415,12 +421,7 @@
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(email)) {
             showAlert("danger", "Invalid Email", "Please enter a valid email address (e.g. owner@example.com).");
-            emailInput.focus();
-            return;
-          }
-
-          if (!CONFIG.isConfigured()) {
-            UI.showToast("Supabase credentials not configured.", "warning", "Configuration Missing");
+            if (emailInputEl) emailInputEl.focus();
             return;
           }
 
@@ -429,14 +430,50 @@
             btnText.textContent = "Authenticating...";
             btnSpinner.style.display = "block";
 
-            await Auth.signIn({ email, password });
+            // Resolve supabase client instance with exact lowercase casing
+            const supabase = (typeof window.getSupabaseClient === "function" ? window.getSupabaseClient() : null) ||
+                             window.supabaseClient ||
+                             (typeof Auth !== "undefined" && typeof Auth.init === "function" ? Auth.init() : null) ||
+                             (window.supabase && typeof window.supabase.createClient === "function" ? window.supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null);
 
-            showAlert("success", "Login Successful", "Welcome back! Loading your project dashboard...");
-            UI.showToast("Authentication successful! Welcome back.", "success", "Authorized");
+            if (!supabase || !supabase.auth) {
+              throw new Error("Supabase client is not available. Please verify your connection.");
+            }
 
-            setTimeout(() => {
-              window.location.replace("dashboard.html");
-            }, 600);
+            // Supabase JS Client v2 API: supabase.auth.signInWithPassword
+            const { data, error } = await supabase.auth.signInWithPassword({
+              email,
+              password
+            });
+
+            if (error) {
+              throw error;
+            }
+
+            // Session check and verification
+            if (data && data.session) {
+              // Verify owner authorization if Auth service is available
+              if (typeof Auth !== "undefined" && typeof Auth.isAuthorizedOwner === "function") {
+                if (!Auth.isAuthorizedOwner(data.user)) {
+                  await supabase.auth.signOut();
+                  throw new Error("Access denied: This email is not authorized as the project owner.");
+                }
+                Auth.currentUser = data.user;
+                Auth.currentSession = data.session;
+              }
+
+              showAlert("success", "Login Successful", "Welcome back! Loading your project dashboard...");
+              UI.showToast("Authentication successful! Welcome back.", "success", "Authorized");
+
+              setTimeout(() => {
+                window.location.replace(`${window.location.origin}/dashboard.html`);
+              }, 400);
+            } else {
+              showAlert("warning", "Email Verification Required", `Please verify your email address at <strong>${email}</strong> before logging in.`);
+              loginBtn.disabled = false;
+              btnText.textContent = "Sign In to Dashboard";
+              btnSpinner.style.display = "none";
+            }
 
           } catch (err) {
             console.error("Login error:", err);
@@ -444,10 +481,44 @@
             btnText.textContent = "Sign In to Dashboard";
             btnSpinner.style.display = "none";
 
-            const msg = (err.message || "").toLowerCase();
+            const errorMsg = err?.message || "An unexpected error occurred during login.";
+            const lowerMsg = errorMsg.toLowerCase();
 
-            if (msg.includes("invalid login credentials") || msg.includes("invalid_grant") || msg.includes("invalid username or password")) {
+            if (lowerMsg.includes("invalid login credentials") || lowerMsg.includes("invalid_grant") || lowerMsg.includes("invalid username or password")) {
               showAlert(
+                "danger",
+                "Incorrect Email or Password",
+                "The email address or password you entered is incorrect. Please verify your credentials and try again."
+              );
+              if (passwordInputEl) passwordInputEl.focus();
+            } else if (lowerMsg.includes("email not confirmed") || lowerMsg.includes("email unconfirmed")) {
+              showAlert(
+                "warning",
+                "Email Not Verified",
+                `Your email address has not been confirmed yet. Please check your inbox at <strong>${email}</strong> for the verification email.`
+              );
+            } else if (lowerMsg.includes("access denied") || lowerMsg.includes("not authorized")) {
+              showAlert(
+                "danger",
+                "Unauthorized Account",
+                errorMsg
+              );
+            } else if (lowerMsg.includes("network error") || lowerMsg.includes("failed to fetch")) {
+              showAlert(
+                "danger",
+                "Network Error",
+                "Could not connect to Supabase servers. Please check your network connection and try again."
+              );
+            } else {
+              showAlert(
+                "danger",
+                "Authentication Failed",
+                errorMsg
+              );
+            }
+          }
+        });
+      }
                 "danger",
                 "Incorrect Email or Password",
                 "The email address or password you entered is incorrect. Please double-check your credentials and try again."

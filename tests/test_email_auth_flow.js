@@ -59,10 +59,20 @@ function runAuthSuite() {
   assert("Login", "Forgot Password link exists", loginHtml.includes('id="link-forgot-password"'));
   assert("Login", "Password visibility toggle exists", loginHtml.includes('id="toggle-login-password-btn"'));
   assert("Login", "Client-side missing fields validation present", loginHtml.includes("!email") && loginHtml.includes("!password"));
+  assert("Login", "Login form uses supabase.auth.signInWithPassword directly", loginHtml.includes("supabase.auth.signInWithPassword"));
+  assert("Login", "Email input is properly trimmed", loginHtml.includes(".value.trim()") || loginHtml.includes("emailInputEl.value : \"\").trim()"));
+  assert("Login", "Session redirection targets dashboard.html", loginHtml.includes("dashboard.html"));
   assert("Login", "Invalid credentials error handling present", loginHtml.includes("invalid login credentials") || loginHtml.includes("invalid_grant"));
   assert("Login", "Unverified email error handling present", loginHtml.includes("email not confirmed") || loginHtml.includes("email unconfirmed"));
   assert("Login", "Network error handling present", loginHtml.includes("network error") || loginHtml.includes("failed to fetch"));
   assert("Login", "Auth.redirectIfAuthenticated() called on page load", loginHtml.includes("Auth.redirectIfAuthenticated()"));
+
+  // --- 2.5 CLIENT INSTANCE AUDIT ---
+  console.log("\n--- 2.5 Centralized Supabase Client (js/supabaseClient.js) ---");
+  const clientJs = fs.existsSync(path.join(rootDir, "js/supabaseClient.js")) ? fs.readFileSync(path.join(rootDir, "js/supabaseClient.js"), "utf8") : "";
+  assert("Client", "js/supabaseClient.js exists", clientJs.length > 100);
+  assert("Client", "getSupabaseClient function is defined", clientJs.includes("getSupabaseClient"));
+  assert("Client", "Exact lowercase supabase.auth configuration preserved", clientJs.includes("persistSession: true") && clientJs.includes("autoRefreshToken: true"));
 
   // --- 3. GOOGLE OAUTH REMOVAL AUDIT ---
   console.log("\n--- 3. Google OAuth Removal Verification ---");

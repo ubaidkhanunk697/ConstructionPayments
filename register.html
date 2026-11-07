@@ -311,9 +311,10 @@
 
   <!-- Configuration & Authentication Scripts -->
   <script src="js/env.js" onerror="/* env.js is optional; fallback to config.js */"></script>
-  <script src="js/config.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/auth.js"></script>
+  <script src="js/config.js?v=2.2"></script>
+  <script src="js/supabaseClient.js?v=2.2"></script>
+  <script src="js/ui.js?v=2.2"></script>
+  <script src="js/auth.js?v=2.2"></script>
 
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
@@ -374,7 +375,9 @@
       }
 
       // Check if user is already authenticated -> redirect to dashboard
-      await Auth.redirectIfAuthenticated();
+      if (typeof Auth !== "undefined" && typeof Auth.redirectIfAuthenticated === "function") {
+        await Auth.redirectIfAuthenticated();
+      }
 
       // Check if Supabase configuration is present
       if (!CONFIG.isConfigured()) {
@@ -391,21 +394,21 @@
           e.preventDefault();
           clearAlert();
 
-          const fullName = nameInput.value.trim();
-          const email = emailInput.value.trim().toLowerCase();
-          const password = passwordInput.value;
-          const confirmPassword = confirmInput.value;
+          const fullName = nameInput ? nameInput.value.trim() : "";
+          const email = emailInput ? emailInput.value.trim().toLowerCase() : "";
+          const password = passwordInput ? passwordInput.value : "";
+          const confirmPassword = confirmInput ? confirmInput.value : "";
 
           // 1. Validate required fields
           if (!fullName) {
             showAlert("danger", "Name Required", "Please enter your full name.");
-            nameInput.focus();
+            if (nameInput) nameInput.focus();
             return;
           }
 
           if (!email) {
             showAlert("danger", "Email Required", "Please enter your email address.");
-            emailInput.focus();
+            if (emailInput) emailInput.focus();
             return;
           }
 
@@ -413,21 +416,21 @@
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(email)) {
             showAlert("danger", "Invalid Email", "Please enter a valid email address (e.g. owner@example.com).");
-            emailInput.focus();
+            if (emailInput) emailInput.focus();
             return;
           }
 
           // 3. Password requirements
           if (!password || password.length < 6) {
             showAlert("danger", "Password Too Short", "Password must be at least 6 characters long.");
-            passwordInput.focus();
+            if (passwordInput) passwordInput.focus();
             return;
           }
 
           // 4. Password confirmation match
           if (password !== confirmPassword) {
             showAlert("danger", "Password Mismatch", "Password and Confirm Password do not match. Please re-enter.");
-            confirmInput.focus();
+            if (confirmInput) confirmInput.focus();
             return;
           }
 
@@ -437,10 +440,56 @@
             btnText.textContent = "Creating Account...";
             btnSpinner.style.display = "block";
 
-            const result = await Auth.signUp({ fullName, email, password });
+            // Resolve supabase client instance
+            const supabase = (typeof window.getSupabaseClient === "function" ? window.getSupabaseClient() : null) ||
+                             window.supabaseClient ||
+                             (typeof Auth !== "undefined" && typeof Auth.init === "function" ? Auth.init() : null) ||
+                             (window.supabase && typeof window.supabase.createClient === "function" ? window.supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null);
+
+            if (!supabase || !supabase.auth) {
+              throw new Error("Supabase client is not available. Please verify your connection.");
+            }
+
+            // Supabase JS Client v2 API: supabase.auth.signUp
+            const { data, error } = await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                data: {
+                  full_name: fullName
+                }
+              }
+            });
+
+            if (error) {
+              throw error;
+            }
+
+            // Check if user already exists (Supabase obfuscation check)
+            if (data.user && data.user.identities && data.user.identities.length === 0) {
+              const err = new Error("User already registered");
+              err.code = "user_already_exists";
+              throw err;
+            }
 
             // Case A: Immediate session returned (email verification not required or auto-confirmed)
-            if (result.session) {
+            if (data && data.session) {
+              if (typeof Auth !== "undefined") {
+                Auth.currentUser = data.user;
+                Auth.currentSession = data.session;
+              }
+
+              // Attempt profile sync
+              try {
+                await supabase.from("profiles").upsert({
+                  id: data.user.id,
+                  email: email,
+                  full_name: fullName
+                });
+              } catch (profileErr) {
+                console.warn("Profile table upsert non-critical warning:", profileErr);
+              }
+
               showAlert(
                 "success",
                 "Account Created Successfully!",
@@ -448,8 +497,8 @@
               );
               UI.showToast("Registration successful! Redirecting to dashboard...", "success", "Welcome");
               setTimeout(() => {
-                window.location.replace("dashboard.html");
-              }, 1200);
+                window.location.replace(`${window.location.origin}/dashboard.html`);
+              }, 800);
               return;
             }
 
@@ -470,9 +519,27 @@
             btnText.textContent = "Create Owner Account";
             btnSpinner.style.display = "none";
 
-            const msg = (err.message || "").toLowerCase();
+            const errorMsg = err?.message || "An unexpected error occurred during registration.";
+            const msg = errorMsg.toLowerCase();
 
             if (msg.includes("already registered") || msg.includes("already exists") || err.code === "user_already_exists") {
+              showAlert(
+                "warning",
+                "Email Already Registered",
+                `The email <strong>${email}</strong> is already registered. Please <a href="login.html" style="font-weight: 600; text-decoration: underline;">click here to log in</a> with your password.`
+              );
+            } else if (msg.includes("restricted to the authorized project owner")) {
+              showAlert(
+                "danger",
+                "Registration Restricted",
+                "Only the designated project owner can register an account for this construction management system."
+              );
+            } else {
+              showAlert("danger", "Registration Failed", errorMsg);
+            }
+          }
+        });
+      }
               showAlert(
                 "warning",
                 "Email Already Registered",

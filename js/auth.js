@@ -15,6 +15,19 @@ const Auth = {
   init() {
     if (this.client) return this.client;
 
+    if (typeof window !== "undefined" && window.supabaseClient && window.supabaseClient.auth) {
+      this.client = window.supabaseClient;
+      return this.client;
+    }
+
+    if (typeof window !== "undefined" && typeof window.getSupabaseClient === "function") {
+      const existing = window.getSupabaseClient();
+      if (existing && existing.auth) {
+        this.client = existing;
+        return this.client;
+      }
+    }
+
     if (!window.supabase || typeof window.supabase.createClient !== "function") {
       console.warn("Supabase SDK not detected. Ensure @supabase/supabase-js is loaded.");
       return null;
@@ -34,6 +47,9 @@ const Auth = {
           storage: typeof window !== "undefined" ? window.localStorage : undefined
         }
       });
+      if (typeof window !== "undefined") {
+        window.supabaseClient = this.client;
+      }
       return this.client;
     } catch (err) {
       console.error("Failed to initialize Supabase client:", err);
@@ -134,6 +150,13 @@ const Auth = {
     }
 
     return data;
+  },
+
+  /**
+   * Authenticate using Email and Password (Supabase v2 standard method)
+   */
+  async signInWithPassword({ email, password }) {
+    return this.signIn({ email, password });
   },
 
   /**
