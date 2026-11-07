@@ -85,3 +85,16 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`Login:              http://127.0.0.1:${PORT}/login.html`);
   console.log(`====================================================`);
 });
+
+// Also bind port 3000 fallback to prevent ERR_CONNECTION_REFUSED if Supabase redirects to default localhost:3000
+if (PORT !== 3000) {
+  const fallbackServer = http.createServer((req, res) => {
+    server.emit("request", req, res);
+  });
+  fallbackServer.on("error", () => {
+    // Port 3000 occupied or unavailable, ignore
+  });
+  fallbackServer.listen(3000, "0.0.0.0", () => {
+    console.log(`OAuth fallback listener active on http://localhost:3000/`);
+  });
+}
