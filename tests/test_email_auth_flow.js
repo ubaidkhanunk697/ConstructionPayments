@@ -36,19 +36,19 @@ function runAuthSuite() {
   // --- 1. REGISTRATION PAGE AUDIT ---
   console.log("--- 1. Registration Page (register.html) ---");
   assert("Register", "register.html file exists and has content", registerHtml.length > 500);
-  assert("Register", "Full Name input field exists", registerHtml.includes('id="register-name"'));
-  assert("Register", "Email Address input field exists", registerHtml.includes('id="register-email"'));
-  assert("Register", "Password input field exists", registerHtml.includes('id="register-password"'));
-  assert("Register", "Confirm Password input field exists", registerHtml.includes('id="register-confirm-password"'));
+  assert("Register", "Full Name input field exists", registerHtml.includes('id="reg-name"') || registerHtml.includes('id="register-name"'));
+  assert("Register", "Email Address input field exists", registerHtml.includes('id="reg-email"') || registerHtml.includes('id="register-email"'));
+  assert("Register", "Password input field exists", registerHtml.includes('id="reg-password"') || registerHtml.includes('id="register-password"'));
+  assert("Register", "Confirm Password input field exists", registerHtml.includes('id="reg-confirm-password"') || registerHtml.includes('id="register-confirm-password"'));
   assert("Register", "Create Owner Account submit button exists", registerHtml.includes('id="btn-register"'));
   assert("Register", "Link to Login page exists", registerHtml.includes('href="login.html"'));
   assert("Register", "Password visibility toggles exist", registerHtml.includes('id="toggle-password-btn"') && registerHtml.includes('id="toggle-confirm-password-btn"'));
-  assert("Register", "Client-side password mismatch check present", registerHtml.includes("password !== confirmPassword"));
-  assert("Register", "Client-side email regex validation present", registerHtml.includes("emailRegex.test"));
-  assert("Register", "Client-side minimum password length validation present", registerHtml.includes("password.length < 6"));
-  assert("Register", "Auth.redirectIfAuthenticated() called on page load", registerHtml.includes("Auth.redirectIfAuthenticated()"));
-  assert("Register", "Email already registered error handler present", registerHtml.includes("already registered") || registerHtml.includes("user_already_exists"));
-  assert("Register", "Email verification instruction box present", registerHtml.includes("Verification Email Sent") || registerHtml.includes("confirmation link"));
+  assert("Register", "Client-side password mismatch check present in auth system", authJs.includes("password !== confirmPassword") || registerHtml.includes("password !== confirmPassword"));
+  assert("Register", "Client-side email regex validation present in auth system", authJs.includes("emailRegex.test") || registerHtml.includes("emailRegex.test"));
+  assert("Register", "Client-side minimum password length validation present in auth system", authJs.includes("password.length < 6") || registerHtml.includes("password.length < 6"));
+  assert("Register", "Auth.redirectIfAuthenticated() called on page load", authJs.includes("Auth.redirectIfAuthenticated()") || registerHtml.includes("Auth.redirectIfAuthenticated()"));
+  assert("Register", "Email already registered error handler present", authJs.includes("already registered") || authJs.includes("user_already_exists"));
+  assert("Register", "Email verification instruction box present", authJs.includes("Verification Email Sent") || authJs.includes("confirmation link"));
 
   // --- 2. LOGIN PAGE AUDIT ---
   console.log("\n--- 2. Login Page (login.html) ---");
@@ -58,14 +58,14 @@ function runAuthSuite() {
   assert("Login", "Link to Registration page exists", loginHtml.includes('href="register.html"'));
   assert("Login", "Forgot Password link exists", loginHtml.includes('id="link-forgot-password"'));
   assert("Login", "Password visibility toggle exists", loginHtml.includes('id="toggle-login-password-btn"'));
-  assert("Login", "Client-side missing fields validation present", loginHtml.includes("!email") && loginHtml.includes("!password"));
-  assert("Login", "Login form uses supabase.auth.signInWithPassword directly", loginHtml.includes("supabase.auth.signInWithPassword"));
-  assert("Login", "Email input is properly trimmed", loginHtml.includes(".value.trim()") || loginHtml.includes("emailInputEl.value : \"\").trim()"));
-  assert("Login", "Session redirection targets dashboard.html", loginHtml.includes("dashboard.html"));
-  assert("Login", "Invalid credentials error handling present", loginHtml.includes("invalid login credentials") || loginHtml.includes("invalid_grant"));
-  assert("Login", "Unverified email error handling present", loginHtml.includes("email not confirmed") || loginHtml.includes("email unconfirmed"));
-  assert("Login", "Network error handling present", loginHtml.includes("network error") || loginHtml.includes("failed to fetch"));
-  assert("Login", "Auth.redirectIfAuthenticated() called on page load", loginHtml.includes("Auth.redirectIfAuthenticated()"));
+  assert("Login", "Client-side missing fields validation present", authJs.includes("!email") && authJs.includes("!password"));
+  assert("Login", "Login form uses supabase.auth.signInWithPassword directly", authJs.includes("supabase.auth.signInWithPassword"));
+  assert("Login", "Email input is properly trimmed", authJs.includes(".value.trim()") || authJs.includes("emailEl.value : \"\").trim()"));
+  assert("Login", "Session redirection targets dashboard.html", authJs.includes("dashboard.html"));
+  assert("Login", "Invalid credentials error handling present", authJs.includes("invalid login credentials") || authJs.includes("invalid_grant"));
+  assert("Login", "Unverified email error handling present", authJs.includes("email not confirmed") || authJs.includes("email unconfirmed"));
+  assert("Login", "Network error handling present", authJs.includes("network error") || authJs.includes("failed to fetch"));
+  assert("Login", "Auth.redirectIfAuthenticated() called on page load", authJs.includes("Auth.redirectIfAuthenticated()"));
 
   // --- 2.5 CLIENT INSTANCE AUDIT ---
   console.log("\n--- 2.5 Centralized Supabase Client (js/supabaseClient.js) ---");

@@ -35,7 +35,7 @@ function auditProduction() {
   check("Auth", "Password input exists in login.html", loginHtml.includes('id="login-password"'));
   check("Auth", "Sign In submit button exists in login.html", loginHtml.includes('id="btn-login"'));
   check("Auth", "Link to Register page exists in login.html", loginHtml.includes('href="register.html"'));
-  check("Auth", "Register page with Full Name and Email inputs exists", registerHtml.includes('id="register-name"') && registerHtml.includes('id="register-email"'));
+  check("Auth", "Register page with Full Name and Email inputs exists", (registerHtml.includes('id="reg-name"') || registerHtml.includes('id="register-name"')) && (registerHtml.includes('id="reg-email"') || registerHtml.includes('id="register-email"')));
   check("Auth", "Single-Owner UUID preserved in config fallback", configJs.includes("55a43065-dcb8-450a-a68f-d05fd221a5bb"));
   check("Auth", "Persistent session enabled in Supabase client", authJs.includes("persistSession: true") && authJs.includes("autoRefreshToken: true"));
   check("Auth", "Logout button exists in sidebar / mobile drawer", dashHtml.includes('id="logout-btn"'));

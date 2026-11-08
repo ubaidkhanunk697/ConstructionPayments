@@ -186,15 +186,16 @@
         
         <!-- Full Name -->
         <div class="form-group">
-          <label class="form-label" for="register-name">
+          <label class="form-label" for="reg-name">
             Full Name <span class="required">*</span>
           </label>
           <div class="input-with-icon">
             <i data-lucide="user" class="input-icon-left" style="width: 16px; height: 16px;"></i>
             <input 
               type="text" 
-              id="register-name" 
+              id="reg-name" 
               name="name" 
+              data-alias="register-name"
               class="form-input" 
               placeholder="e.g. Ubaid Khan" 
               required 
@@ -205,15 +206,16 @@
 
         <!-- Email Address -->
         <div class="form-group">
-          <label class="form-label" for="register-email">
+          <label class="form-label" for="reg-email">
             Email Address <span class="required">*</span>
           </label>
           <div class="input-with-icon">
             <i data-lucide="mail" class="input-icon-left" style="width: 16px; height: 16px;"></i>
             <input 
               type="email" 
-              id="register-email" 
+              id="reg-email" 
               name="email" 
+              data-alias="register-email"
               class="form-input" 
               placeholder="owner@example.com" 
               required 
@@ -224,15 +226,16 @@
 
         <!-- Password -->
         <div class="form-group">
-          <label class="form-label" for="register-password">
+          <label class="form-label" for="reg-password">
             Password <span class="required">*</span>
           </label>
           <div class="input-with-icon" style="position: relative;">
             <i data-lucide="lock" class="input-icon-left" style="width: 16px; height: 16px;"></i>
             <input 
               type="password" 
-              id="register-password" 
+              id="reg-password" 
               name="password" 
+              data-alias="register-password"
               class="form-input" 
               placeholder="Minimum 6 characters" 
               required 
@@ -251,15 +254,16 @@
 
         <!-- Confirm Password -->
         <div class="form-group">
-          <label class="form-label" for="register-confirm-password">
+          <label class="form-label" for="reg-confirm-password">
             Confirm Password <span class="required">*</span>
           </label>
           <div class="input-with-icon" style="position: relative;">
             <i data-lucide="lock" class="input-icon-left" style="width: 16px; height: 16px;"></i>
             <input 
               type="password" 
-              id="register-confirm-password" 
+              id="reg-confirm-password" 
               name="confirm-password" 
+              data-alias="register-confirm-password"
               class="form-input" 
               placeholder="Re-enter password" 
               required 
@@ -323,15 +327,8 @@
       }
 
       const alertContainer = document.getElementById("auth-alert-container");
-      const form = document.getElementById("register-form");
-      const nameInput = document.getElementById("register-name");
-      const emailInput = document.getElementById("register-email");
-      const passwordInput = document.getElementById("register-password");
-      const confirmInput = document.getElementById("register-confirm-password");
-      const registerBtn = document.getElementById("btn-register");
-      const btnText = document.getElementById("btn-register-text");
-      const btnSpinner = document.getElementById("btn-register-spinner");
-
+      const passwordInput = document.getElementById("reg-password") || document.getElementById("register-password");
+      const confirmInput = document.getElementById("reg-confirm-password") || document.getElementById("register-confirm-password");
       const togglePwBtn = document.getElementById("toggle-password-btn");
       const toggleConfirmPwBtn = document.getElementById("toggle-confirm-password-btn");
 
@@ -354,208 +351,20 @@
         });
       }
 
-      // Helper to display alert banner
-      function showAlert(type, title, message) {
-        if (!alertContainer) return;
-        const iconName = type === "danger" ? "alert-circle" : (type === "warning" ? "alert-triangle" : (type === "success" ? "check-circle-2" : "info"));
-        alertContainer.innerHTML = `
-          <div class="auth-alert auth-alert-${type}">
-            <i data-lucide="${iconName}" class="auth-alert-icon" style="width: 16px; height: 16px;"></i>
-            <div>
-              <strong style="display: block; margin-bottom: 2px;">${title}</strong>
-              <span>${message}</span>
-            </div>
-          </div>
-        `;
-        if (window.lucide) window.lucide.createIcons();
-      }
-
-      function clearAlert() {
-        if (alertContainer) alertContainer.innerHTML = "";
-      }
-
-      // Check if user is already authenticated -> redirect to dashboard
-      if (typeof Auth !== "undefined" && typeof Auth.redirectIfAuthenticated === "function") {
-        await Auth.redirectIfAuthenticated();
-      }
-
       // Check if Supabase configuration is present
-      if (!CONFIG.isConfigured()) {
-        showAlert(
-          "warning",
-          "Supabase Setup Required",
-          "Supabase credentials have not been configured yet. Ensure <code>js/config.js</code> or <code>js/env.js</code> contains your Project URL and Anon Key."
-        );
-      }
-
-      // Handle Registration Submission
-      if (form) {
-        form.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          clearAlert();
-
-          const fullName = nameInput ? nameInput.value.trim() : "";
-          const email = emailInput ? emailInput.value.trim().toLowerCase() : "";
-          const password = passwordInput ? passwordInput.value : "";
-          const confirmPassword = confirmInput ? confirmInput.value : "";
-
-          // 1. Validate required fields
-          if (!fullName) {
-            showAlert("danger", "Name Required", "Please enter your full name.");
-            if (nameInput) nameInput.focus();
-            return;
-          }
-
-          if (!email) {
-            showAlert("danger", "Email Required", "Please enter your email address.");
-            if (emailInput) emailInput.focus();
-            return;
-          }
-
-          // 2. Validate email format
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(email)) {
-            showAlert("danger", "Invalid Email", "Please enter a valid email address (e.g. owner@example.com).");
-            if (emailInput) emailInput.focus();
-            return;
-          }
-
-          // 3. Password requirements
-          if (!password || password.length < 6) {
-            showAlert("danger", "Password Too Short", "Password must be at least 6 characters long.");
-            if (passwordInput) passwordInput.focus();
-            return;
-          }
-
-          // 4. Password confirmation match
-          if (password !== confirmPassword) {
-            showAlert("danger", "Password Mismatch", "Password and Confirm Password do not match. Please re-enter.");
-            if (confirmInput) confirmInput.focus();
-            return;
-          }
-
-          // Submit registration to Supabase
-          try {
-            registerBtn.disabled = true;
-            btnText.textContent = "Creating Account...";
-            btnSpinner.style.display = "block";
-
-            // Resolve supabase client instance
-            const supabase = (typeof window.getSupabaseClient === "function" ? window.getSupabaseClient() : null) ||
-                             window.supabaseClient ||
-                             (typeof Auth !== "undefined" && typeof Auth.init === "function" ? Auth.init() : null) ||
-                             (window.supabase && typeof window.supabase.createClient === "function" ? window.supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null);
-
-            if (!supabase || !supabase.auth) {
-              throw new Error("Supabase client is not available. Please verify your connection.");
-            }
-
-            // Supabase JS Client v2 API: supabase.auth.signUp
-            const { data, error } = await supabase.auth.signUp({
-              email,
-              password,
-              options: {
-                data: {
-                  full_name: fullName
-                }
-              }
-            });
-
-            if (error) {
-              throw error;
-            }
-
-            // Check if user already exists (Supabase obfuscation check)
-            if (data.user && data.user.identities && data.user.identities.length === 0) {
-              const err = new Error("User already registered");
-              err.code = "user_already_exists";
-              throw err;
-            }
-
-            // Case A: Immediate session returned (email verification not required or auto-confirmed)
-            if (data && data.session) {
-              if (typeof Auth !== "undefined") {
-                Auth.currentUser = data.user;
-                Auth.currentSession = data.session;
-              }
-
-              // Attempt profile sync
-              try {
-                await supabase.from("profiles").upsert({
-                  id: data.user.id,
-                  email: email,
-                  full_name: fullName
-                });
-              } catch (profileErr) {
-                console.warn("Profile table upsert non-critical warning:", profileErr);
-              }
-
-              showAlert(
-                "success",
-                "Account Created Successfully!",
-                "Your owner account has been registered. Redirecting to your dashboard..."
-              );
-              UI.showToast("Registration successful! Redirecting to dashboard...", "success", "Welcome");
-              setTimeout(() => {
-                window.location.replace(`${window.location.origin}/dashboard.html`);
-              }, 800);
-              return;
-            }
-
-            // Case B: Supabase email verification required
-            showAlert(
-              "success",
-              "Verification Email Sent",
-              `Account registered successfully! A confirmation link has been sent to <strong>${email}</strong>. Please check your inbox and verify your email, then <a href="login.html" style="font-weight: 600; text-decoration: underline;">log in here</a>.`
-            );
-            form.reset();
-            registerBtn.disabled = false;
-            btnText.textContent = "Create Owner Account";
-            btnSpinner.style.display = "none";
-
-          } catch (err) {
-            console.error("Registration error:", err);
-            registerBtn.disabled = false;
-            btnText.textContent = "Create Owner Account";
-            btnSpinner.style.display = "none";
-
-            const errorMsg = err?.message || "An unexpected error occurred during registration.";
-            const msg = errorMsg.toLowerCase();
-
-            if (msg.includes("already registered") || msg.includes("already exists") || err.code === "user_already_exists") {
-              showAlert(
-                "warning",
-                "Email Already Registered",
-                `The email <strong>${email}</strong> is already registered. Please <a href="login.html" style="font-weight: 600; text-decoration: underline;">click here to log in</a> with your password.`
-              );
-            } else if (msg.includes("restricted to the authorized project owner")) {
-              showAlert(
-                "danger",
-                "Registration Restricted",
-                "Only the designated project owner can register an account for this construction management system."
-              );
-            } else {
-              showAlert("danger", "Registration Failed", errorMsg);
-            }
-          }
-        });
-      }
-              showAlert(
-                "warning",
-                "Email Already Registered",
-                `The email <strong>${email}</strong> is already registered. Please <a href="login.html" style="font-weight: 600; text-decoration: underline;">click here to log in</a> with your password.`
-              );
-            } else if (msg.includes("restricted to the authorized project owner")) {
-              showAlert(
-                "danger",
-                "Registration Restricted",
-                "Only the designated project owner can register an account for this construction management system."
-              );
-            } else {
-              showAlert("danger", "Registration Failed", err.message || "An unexpected error occurred during registration.");
-            }
-          }
-        });
+      if (typeof CONFIG !== "undefined" && !CONFIG.isConfigured()) {
+        if (alertContainer) {
+          alertContainer.innerHTML = `
+            <div class="auth-alert auth-alert-warning">
+              <i data-lucide="alert-triangle" class="auth-alert-icon" style="width: 16px; height: 16px;"></i>
+              <div>
+                <strong style="display: block; margin-bottom: 2px;">Supabase Setup Required</strong>
+                <span>Supabase credentials have not been configured yet. Ensure <code>js/config.js</code> or <code>js/env.js</code> contains your Project URL and Anon Key.</span>
+              </div>
+            </div>
+          `;
+          if (window.lucide) window.lucide.createIcons();
+        }
       }
     });
   </script>

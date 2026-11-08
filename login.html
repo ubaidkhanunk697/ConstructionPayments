@@ -306,18 +306,13 @@
       }
 
       const alertContainer = document.getElementById("auth-alert-container");
-      const form = document.getElementById("login-form");
-      const emailInput = document.getElementById("login-email");
       const passwordInput = document.getElementById("login-password");
-      const loginBtn = document.getElementById("btn-login");
-      const btnText = document.getElementById("btn-login-text");
-      const btnSpinner = document.getElementById("btn-login-spinner");
       const togglePwBtn = document.getElementById("toggle-login-password-btn");
-
       const linkForgotPw = document.getElementById("link-forgot-password");
       const forgotPwForm = document.getElementById("forgot-password-form");
       const resetEmailInput = document.getElementById("reset-email");
       const cancelResetBtn = document.getElementById("btn-cancel-reset");
+      const emailInput = document.getElementById("login-email");
 
       // Toggle Password Visibility
       if (togglePwBtn && passwordInput) {
@@ -329,7 +324,6 @@
         });
       }
 
-      // Helper to display alert banner
       function showAlert(type, title, message) {
         if (!alertContainer) return;
         const iconName = type === "danger" ? "alert-circle" : (type === "warning" ? "alert-triangle" : (type === "success" ? "check-circle-2" : "info"));
@@ -343,10 +337,6 @@
           </div>
         `;
         if (window.lucide) window.lucide.createIcons();
-      }
-
-      function clearAlert() {
-        if (alertContainer) alertContainer.innerHTML = "";
       }
 
       // Check URL query parameters for statuses
@@ -379,178 +369,12 @@
       }
 
       // Check if Supabase configuration is present
-      if (!CONFIG.isConfigured()) {
+      if (typeof CONFIG !== "undefined" && !CONFIG.isConfigured()) {
         showAlert(
           "warning",
           "Supabase Setup Required",
           "Supabase credentials have not been configured yet. Ensure <code>js/config.js</code> or <code>js/env.js</code> contains your Project URL and Anon Key."
         );
-      }
-
-      // If user is already authenticated and authorized, redirect immediately to dashboard
-      if (typeof Auth !== "undefined" && typeof Auth.redirectIfAuthenticated === "function") {
-        await Auth.redirectIfAuthenticated();
-      }
-
-      // Handle Login Form Submission
-      if (form) {
-        form.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          clearAlert();
-
-          const emailInputEl = document.querySelector('input[type="email"]') || document.getElementById("login-email");
-          const passwordInputEl = document.querySelector('input[type="password"]') || document.getElementById("login-password");
-
-          const email = (emailInputEl ? emailInputEl.value : "").trim();
-          const password = passwordInputEl ? passwordInputEl.value : "";
-
-          // 1. Missing fields check
-          if (!email) {
-            showAlert("danger", "Email Required", "Please enter your registered email address.");
-            if (emailInputEl) emailInputEl.focus();
-            return;
-          }
-
-          if (!password) {
-            showAlert("danger", "Password Required", "Please enter your password.");
-            if (passwordInputEl) passwordInputEl.focus();
-            return;
-          }
-
-          // 2. Validate email format
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(email)) {
-            showAlert("danger", "Invalid Email", "Please enter a valid email address (e.g. owner@example.com).");
-            if (emailInputEl) emailInputEl.focus();
-            return;
-          }
-
-          try {
-            loginBtn.disabled = true;
-            btnText.textContent = "Authenticating...";
-            btnSpinner.style.display = "block";
-
-            // Resolve supabase client instance with exact lowercase casing
-            const supabase = (typeof window.getSupabaseClient === "function" ? window.getSupabaseClient() : null) ||
-                             window.supabaseClient ||
-                             (typeof Auth !== "undefined" && typeof Auth.init === "function" ? Auth.init() : null) ||
-                             (window.supabase && typeof window.supabase.createClient === "function" ? window.supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null);
-
-            if (!supabase || !supabase.auth) {
-              throw new Error("Supabase client is not available. Please verify your connection.");
-            }
-
-            // Supabase JS Client v2 API: supabase.auth.signInWithPassword
-            const { data, error } = await supabase.auth.signInWithPassword({
-              email,
-              password
-            });
-
-            if (error) {
-              throw error;
-            }
-
-            // Session check and verification
-            if (data && data.session) {
-              // Verify owner authorization if Auth service is available
-              if (typeof Auth !== "undefined" && typeof Auth.isAuthorizedOwner === "function") {
-                if (!Auth.isAuthorizedOwner(data.user)) {
-                  await supabase.auth.signOut();
-                  throw new Error("Access denied: This email is not authorized as the project owner.");
-                }
-                Auth.currentUser = data.user;
-                Auth.currentSession = data.session;
-              }
-
-              showAlert("success", "Login Successful", "Welcome back! Loading your project dashboard...");
-              UI.showToast("Authentication successful! Welcome back.", "success", "Authorized");
-
-              setTimeout(() => {
-                window.location.replace(`${window.location.origin}/dashboard.html`);
-              }, 400);
-            } else {
-              showAlert("warning", "Email Verification Required", `Please verify your email address at <strong>${email}</strong> before logging in.`);
-              loginBtn.disabled = false;
-              btnText.textContent = "Sign In to Dashboard";
-              btnSpinner.style.display = "none";
-            }
-
-          } catch (err) {
-            console.error("Login error:", err);
-            loginBtn.disabled = false;
-            btnText.textContent = "Sign In to Dashboard";
-            btnSpinner.style.display = "none";
-
-            const errorMsg = err?.message || "An unexpected error occurred during login.";
-            const lowerMsg = errorMsg.toLowerCase();
-
-            if (lowerMsg.includes("invalid login credentials") || lowerMsg.includes("invalid_grant") || lowerMsg.includes("invalid username or password")) {
-              showAlert(
-                "danger",
-                "Incorrect Email or Password",
-                "The email address or password you entered is incorrect. Please verify your credentials and try again."
-              );
-              if (passwordInputEl) passwordInputEl.focus();
-            } else if (lowerMsg.includes("email not confirmed") || lowerMsg.includes("email unconfirmed")) {
-              showAlert(
-                "warning",
-                "Email Not Verified",
-                `Your email address has not been confirmed yet. Please check your inbox at <strong>${email}</strong> for the verification email.`
-              );
-            } else if (lowerMsg.includes("access denied") || lowerMsg.includes("not authorized")) {
-              showAlert(
-                "danger",
-                "Unauthorized Account",
-                errorMsg
-              );
-            } else if (lowerMsg.includes("network error") || lowerMsg.includes("failed to fetch")) {
-              showAlert(
-                "danger",
-                "Network Error",
-                "Could not connect to Supabase servers. Please check your network connection and try again."
-              );
-            } else {
-              showAlert(
-                "danger",
-                "Authentication Failed",
-                errorMsg
-              );
-            }
-          }
-        });
-      }
-                "danger",
-                "Incorrect Email or Password",
-                "The email address or password you entered is incorrect. Please double-check your credentials and try again."
-              );
-              passwordInput.focus();
-            } else if (msg.includes("email not confirmed") || msg.includes("email unconfirmed")) {
-              showAlert(
-                "warning",
-                "Email Not Verified",
-                `Your email address has not been confirmed yet. Please check your inbox at <strong>${email}</strong> for the Supabase verification email.`
-              );
-            } else if (msg.includes("access denied") || msg.includes("not authorized")) {
-              showAlert(
-                "danger",
-                "Unauthorized Account",
-                err.message || "This email address is not authorized as the designated project owner."
-              );
-            } else if (msg.includes("failed to fetch") || msg.includes("networkerror") || msg.includes("network error")) {
-              showAlert(
-                "danger",
-                "Network Error",
-                "Could not reach Supabase servers. Please check your internet connection and try again."
-              );
-            } else {
-              showAlert(
-                "danger",
-                "Authentication Failed",
-                err.message || "An unexpected error occurred during login."
-              );
-            }
-          }
-        });
       }
 
       // Handle Forgot Password Toggle
@@ -559,8 +383,8 @@
           e.preventDefault();
           const isHidden = forgotPwForm.style.display === "none";
           forgotPwForm.style.display = isHidden ? "block" : "none";
-          if (isHidden && emailInput.value) {
-            resetEmailInput.value = emailInput.value;
+          if (isHidden && emailInput && emailInput.value) {
+            resetEmailInput.value = emailInput.value.trim();
           }
         });
       }
@@ -577,7 +401,7 @@
           e.preventDefault();
           const resetEmail = resetEmailInput.value.trim().toLowerCase();
           if (!resetEmail) {
-            UI.showToast("Please enter your email address for password reset.", "warning", "Input Required");
+            showAlert("warning", "Email Required", "Please enter your email address for password reset.");
             return;
           }
 
