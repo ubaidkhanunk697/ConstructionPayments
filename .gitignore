@@ -1,8 +1,8 @@
 # Dependencies
 node_modules/
 
-# Environment files containing credentials
-js/env.js
+# Environment files containing credentials (use env.local.js for private local-only overrides)
+js/env.local.js
 .env
 .env.local
 

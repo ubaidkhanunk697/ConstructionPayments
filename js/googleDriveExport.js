@@ -5,6 +5,9 @@
  * Scope: https://www.googleapis.com/auth/drive.file (Strictly isolated to app-created files)
  */
 
+// Production Google OAuth Web Client ID for Google Drive Export
+const GOOGLE_CLIENT_ID = "767207458104-srq6jskuq2fi6e6abo80jsb7tjne2590.apps.googleusercontent.com";
+
 const GoogleDriveExport = {
   tokenClient: null,
   accessToken: null,
@@ -30,7 +33,7 @@ const GoogleDriveExport = {
     return (
       (typeof window !== "undefined" && window.ENV?.GOOGLE_CLIENT_ID) ||
       (typeof CONFIG !== "undefined" && CONFIG.GOOGLE_DRIVE?.CLIENT_ID) ||
-      ""
+      GOOGLE_CLIENT_ID
     ).trim();
   },
 

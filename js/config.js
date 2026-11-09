@@ -55,8 +55,7 @@ const CONFIG = {
 
   // Google Drive REST API & Google Identity Services (GIS)
   GOOGLE_DRIVE: {
-    // Paste your OAuth 2.0 Web Client ID from Google Cloud Console
-    CLIENT_ID: (env.GOOGLE_CLIENT_ID || "").trim(),
+    CLIENT_ID: (env.GOOGLE_CLIENT_ID || "767207458104-srq6jskuq2fi6e6abo80jsb7tjne2590.apps.googleusercontent.com").trim(),
     SCOPE: "https://www.googleapis.com/auth/drive.file"
   },
 

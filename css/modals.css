@@ -210,6 +210,9 @@
   padding: var(--space-3) var(--space-4);
   margin-bottom: var(--space-4);
   overflow: hidden;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
 }
 
 .payment-context-header {
@@ -221,6 +224,8 @@
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-border-subtle);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .payment-context-title-group {
@@ -230,6 +235,7 @@
   gap: var(--space-2);
   min-width: 0;
   max-width: 100%;
+  flex: 1 1 auto;
 }
 
 .payment-context-title {
@@ -243,6 +249,11 @@
   white-space: normal;
   word-break: break-word;
   max-width: 100%;
+}
+
+#btn-history-add-payment {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .payment-context-grid {

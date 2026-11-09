@@ -20,5 +20,8 @@ window.ENV = {
 
   // Dynamic Single-Owner Configuration (Zero Hardcoding)
   ALLOWED_OWNER_EMAIL: "",
-  ALLOWED_OWNER_UUID: ""
+  ALLOWED_OWNER_UUID: "",
+
+  // Google OAuth 2.0 Web Client ID for Direct Google Drive Export
+  GOOGLE_CLIENT_ID: "767207458104-srq6jskuq2fi6e6abo80jsb7tjne2590.apps.googleusercontent.com"
 };
