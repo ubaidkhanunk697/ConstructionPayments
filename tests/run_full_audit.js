@@ -258,15 +258,27 @@ async function runAudit() {
   vm.runInNewContext(exportCode, domSandbox);
   const ExportService = domSandbox.ExportService;
 
-  // Test 4.1: Material Records Worksheet (11 Columns)
+  // Test 4.1: Material Records Worksheet (11 Columns in Redesigned Order)
   const wsMat = ExportService.buildMaterialsWorksheet(Dashboard.cachedMaterials);
   const expectedMatCols = [
-    "Record ID", "Person Name", "Material Type", "Material Quantity", "Unit",
-    "Total Amount Due (PKR)", "Paid Amount (PKR)", "Pending Amount (PKR)",
-    "Purchase Date", "Day", "Notes"
+    "Record ID", "Purchase Date", "Day", "Person Name", "Material Type", "Material Quantity", "Unit",
+    "Total Amount Due (PKR)", "Paid Amount (PKR)", "Pending Amount (PKR)", "Notes"
   ];
   recordTest('Excel', 'Worksheet 1 Headers Match 11 Required Columns', 
     JSON.stringify(wsMat._rows[0]) === JSON.stringify(expectedMatCols)
+  );
+
+  // Test 4.1b: Record ID is Sequential Number and Sorted First-Entered First
+  const mockUnsortedMaterials = [
+    { id: 'uuid-b', created_at: '2026-11-02T10:00:00Z', purchase_date: '2026-11-02', person_name: 'Second Entry' },
+    { id: 'uuid-a', created_at: '2026-11-01T10:00:00Z', purchase_date: '2026-11-01', person_name: 'First Entry' },
+    { id: 'uuid-c', created_at: '2026-11-03T10:00:00Z', purchase_date: '2026-11-03', person_name: 'Third Entry' }
+  ];
+  const wsSorted = ExportService.buildMaterialsWorksheet(mockUnsortedMaterials);
+  const isNumericSequential = wsSorted._rows[1][0] === 1 && wsSorted._rows[2][0] === 2 && wsSorted._rows[3][0] === 3;
+  const isFirstEnteredFirst = wsSorted._rows[1][3] === 'First Entry' && wsSorted._rows[2][3] === 'Second Entry' && wsSorted._rows[3][3] === 'Third Entry';
+  recordTest('Excel', 'Record ID is Sequential (1, 2, 3) and Sorted Chronologically (First Entered First)',
+    isNumericSequential && isFirstEnteredFirst
   );
 
   // Test 4.2: Payment History Worksheet (8 Columns)

@@ -47,12 +47,28 @@ const ExportService = {
       // 3. Build Worksheets
       const wb = XLSX.utils.book_new();
 
+      // Build material ID lookup map (UUID -> numeric Record ID: 1, 2, 3...)
+      // so Payment History worksheet can cross-reference records by numeric ID
+      const materialIdMap = {};
+      const sortedMaterialsForMap = [...materials].sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (timeA && timeB && timeA !== timeB) return timeA - timeB;
+        const dateA = a.purchase_date || "";
+        const dateB = b.purchase_date || "";
+        if (dateA !== dateB) return dateA.localeCompare(dateB);
+        return String(a.id || "").localeCompare(String(b.id || ""));
+      });
+      sortedMaterialsForMap.forEach((m, idx) => {
+        if (m.id) materialIdMap[m.id] = idx + 1;
+      });
+
       // Worksheet 1: Material Records
       const wsMaterials = this.buildMaterialsWorksheet(materials);
       XLSX.utils.book_append_sheet(wb, wsMaterials, "Material Records");
 
       // Worksheet 2: Payment History
-      const wsPayments = this.buildPaymentsWorksheet(payments);
+      const wsPayments = this.buildPaymentsWorksheet(payments, materialIdMap);
       XLSX.utils.book_append_sheet(wb, wsPayments, "Payment History");
 
       // Worksheet 3: Summary
@@ -81,13 +97,32 @@ const ExportService = {
   },
 
   /**
+   * Helper: Get Weekday Name
+   */
+  getDayName(dateStr) {
+    if (!dateStr) return "";
+    if (typeof UI !== "undefined" && typeof UI.getDayName === "function") {
+      return UI.getDayName(dateStr);
+    }
+    const parts = dateStr.split("-").map(Number);
+    if (parts.length === 3) {
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      return d.toLocaleDateString("en-US", { weekday: "long" });
+    }
+    return "";
+  },
+
+  /**
    * Build Worksheet 1: Material Records
-   * Columns: Record ID, Person Name, Material Type, Material Quantity, Unit,
-   * Total Amount Due, Paid Amount, Pending Amount, Purchase Date, Day, Notes
+   * Columns: Record ID, Purchase Date, Day, Person Name, Material Type, Material Quantity, Unit,
+   * Total Amount Due (PKR), Paid Amount (PKR), Pending Amount (PKR), Notes
+   * Sorted so that first entered data appears first (Record ID: 1, 2, 3...)
    */
   buildMaterialsWorksheet(materials) {
     const headers = [
       "Record ID",
+      "Purchase Date",
+      "Day",
       "Person Name",
       "Material Type",
       "Material Quantity",
@@ -95,8 +130,6 @@ const ExportService = {
       "Total Amount Due (PKR)",
       "Paid Amount (PKR)",
       "Pending Amount (PKR)",
-      "Purchase Date",
-      "Day",
       "Notes"
     ];
 
@@ -105,21 +138,35 @@ const ExportService = {
     if (!materials || materials.length === 0) {
       rows.push(["No material records recorded yet.", "", "", "", "", "", "", "", "", "", ""]);
     } else {
-      materials.forEach((m) => {
-        const recordId = m.id || "";
+      // Sort chronologically: first entered data (earliest created/purchased) appears first
+      const sortedMaterials = [...materials].sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (timeA && timeB && timeA !== timeB) return timeA - timeB;
+        const dateA = a.purchase_date || "";
+        const dateB = b.purchase_date || "";
+        if (dateA !== dateB) return dateA.localeCompare(dateB);
+        return String(a.id || "").localeCompare(String(b.id || ""));
+      });
+
+      sortedMaterials.forEach((m, index) => {
+        // Record ID as a clean sequential number (1, 2, 3...)
+        const recordId = index + 1;
+        const purchaseDate = m.purchase_date || "";
+        const day = m.purchase_day || (m.purchase_date ? this.getDayName(m.purchase_date) : "");
         const personName = m.person_name || "Unassigned";
         const materialType = m.material_type || "General";
-        const quantity = m.quantity !== null && m.quantity !== undefined ? Number(m.quantity) : "";
+        const quantity = m.quantity !== null && m.quantity !== undefined && m.quantity !== "" ? Number(m.quantity) : "";
         const unit = m.unit || "";
         const totalDue = m.total_due !== null && m.total_due !== undefined ? Number(m.total_due) : "Unset";
         const paidAmount = Number(m.paid_amount) || 0;
         const pendingAmount = m.pending_amount !== null && m.pending_amount !== undefined ? Number(m.pending_amount) : "Unset";
-        const purchaseDate = m.purchase_date || "";
-        const day = m.purchase_day || (m.purchase_date ? UI.getDayName(m.purchase_date) : "");
         const notes = m.notes || "";
 
         rows.push([
           recordId,
+          purchaseDate,
+          day,
           personName,
           materialType,
           quantity,
@@ -127,8 +174,6 @@ const ExportService = {
           totalDue,
           paidAmount,
           pendingAmount,
-          purchaseDate,
-          day,
           notes
         ]);
       });
@@ -141,7 +186,7 @@ const ExportService = {
     ws["!views"] = [{ state: "frozen", ySplit: 1 }];
 
     // Auto-compute column widths
-    ws["!cols"] = this.computeAutoColumnWidths(rows, [16, 20, 20, 16, 12, 22, 18, 20, 14, 12, 35]);
+    ws["!cols"] = this.computeAutoColumnWidths(rows, [12, 16, 14, 20, 22, 18, 12, 22, 18, 22, 35]);
 
     return ws;
   },
@@ -151,7 +196,7 @@ const ExportService = {
    * Columns: Payment ID, Material Record ID, Person Name, Material Type,
    * Payment Amount, Payment Date, Payment Method, Notes
    */
-  buildPaymentsWorksheet(payments) {
+  buildPaymentsWorksheet(payments, materialIdMap = {}) {
     const headers = [
       "Payment ID",
       "Material Record ID",
@@ -168,9 +213,19 @@ const ExportService = {
     if (!payments || payments.length === 0) {
       rows.push(["No payment transactions recorded yet.", "", "", "", "", "", "", ""]);
     } else {
-      payments.forEach((p) => {
-        const paymentId = p.id || "";
-        const materialRecordId = p.material_record_id || "";
+      // Sort payments chronologically (earliest first)
+      const sortedPayments = [...payments].sort((a, b) => {
+        const timeA = a.payment_date || a.created_at || "";
+        const timeB = b.payment_date || b.created_at || "";
+        return timeA.localeCompare(timeB);
+      });
+
+      sortedPayments.forEach((p, idx) => {
+        // Sequential clean payment number (1, 2, 3...)
+        const paymentId = idx + 1;
+        const materialRecordId = (p.material_record_id && materialIdMap[p.material_record_id])
+          ? materialIdMap[p.material_record_id]
+          : (p.material_record_id || "");
         const personName = p.material_records?.person_name || "Unassigned";
         const materialType = p.material_records?.material_type || "Material";
         const amount = Number(p.amount) || 0;
@@ -198,7 +253,7 @@ const ExportService = {
     ws["!views"] = [{ state: "frozen", ySplit: 1 }];
 
     // Auto-compute column widths
-    ws["!cols"] = this.computeAutoColumnWidths(rows, [16, 18, 20, 18, 20, 14, 16, 35]);
+    ws["!cols"] = this.computeAutoColumnWidths(rows, [12, 18, 20, 18, 20, 14, 16, 35]);
 
     return ws;
   },
