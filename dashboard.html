@@ -32,10 +32,10 @@
     <!-- Modular Stylesheets (Guaranteed compatibility with file:// and http://) -->
     <link rel="stylesheet" href="css/variables.css" />
     <link rel="stylesheet" href="css/base.css" />
-    <link rel="stylesheet" href="css/components.css" />
+    <link rel="stylesheet" href="css/components.css?v=2.7" />
     <link rel="stylesheet" href="css/layout.css" />
-    <link rel="stylesheet" href="css/modals.css?v=2.6" />
-    <link rel="stylesheet" href="css/responsive.css?v=2.6" />
+    <link rel="stylesheet" href="css/modals.css?v=2.7" />
+    <link rel="stylesheet" href="css/responsive.css?v=2.7" />
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
@@ -147,10 +147,11 @@
             <button
               type="button"
               id="btn-export-excel"
-              class="btn btn-secondary"
+              class="btn btn-secondary btn-export-action"
               title="Download Excel spreadsheet to your computer"
+              aria-label="Download Excel"
             >
-              <i data-lucide="download"></i>
+              <i data-lucide="download" style="width: 16px; height: 16px; color: var(--color-paid);"></i>
               <span class="btn-label-responsive">Download Excel</span>
             </button>
 
@@ -158,10 +159,18 @@
             <button
               type="button"
               id="btn-export-gdrive"
-              class="btn btn-secondary"
+              class="btn btn-secondary btn-export-action"
               title="Save Excel spreadsheet directly to your Google Drive"
+              aria-label="Save to Google Drive"
             >
-              <i data-lucide="cloud-upload" style="color: #4285F4;"></i>
+              <svg class="gdrive-logo-icon" viewBox="0 0 87.3 78" width="16" height="15" style="vertical-align: middle; flex-shrink: 0;" aria-hidden="true">
+                <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+                <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00ac47"/>
+                <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+                <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+                <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+                <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+              </svg>
               <span class="btn-label-responsive">Save to Drive</span>
             </button>
 
@@ -170,9 +179,11 @@
               type="button"
               id="btn-add-material-header"
               class="btn btn-primary"
+              title="Record New Construction Material Entry"
+              aria-label="Add Material"
             >
-              <i data-lucide="plus"></i>
-              <span>Add Material</span>
+              <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+              <span class="btn-label-responsive">Add Material</span>
             </button>
           </div>
         </header>
@@ -340,26 +351,32 @@
                 <button
                   type="button"
                   id="btn-export-excel-toolbar"
-                  class="btn btn-secondary btn-sm"
+                  class="btn btn-secondary btn-sm btn-export-action"
                   title="Download all records as Excel to local storage"
+                  aria-label="Download Excel"
                 >
                   <i
-                    data-lucide="file-spreadsheet"
+                    data-lucide="download"
                     style="width: 14px; height: 14px; color: var(--color-paid)"
                   ></i>
-                  <span>Download Excel (Local)</span>
+                  <span class="btn-label-responsive">Download Excel</span>
                 </button>
                 <button
                   type="button"
                   id="btn-export-gdrive-toolbar"
-                  class="btn btn-secondary btn-sm"
+                  class="btn btn-secondary btn-sm btn-export-action"
                   title="Save all records as Excel directly to your Google Drive"
+                  aria-label="Save to Google Drive"
                 >
-                  <i
-                    data-lucide="cloud-upload"
-                    style="width: 14px; height: 14px; color: #4285F4"
-                  ></i>
-                  <span>Save to Drive</span>
+                  <svg class="gdrive-logo-icon" viewBox="0 0 87.3 78" width="14" height="13" style="vertical-align: middle; flex-shrink: 0;" aria-hidden="true">
+                    <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+                    <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00ac47"/>
+                    <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+                    <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+                    <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+                    <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+                  </svg>
+                  <span class="btn-label-responsive">Save to Drive</span>
                 </button>
               </div>
             </div>
@@ -1866,14 +1883,14 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="js/config.js?v=2.6"></script>
-    <script src="js/supabaseClient.js?v=2.6"></script>
-    <script src="js/auth.js?v=2.6"></script>
-    <script src="js/db.js?v=2.6"></script>
-    <script src="js/dashboard.js?v=2.6"></script>
-    <script src="js/ui.js?v=2.6"></script>
-    <script src="js/export.js?v=2.6"></script>
-    <script src="js/googleDriveExport.js?v=2.6"></script>
-    <script src="js/app.js?v=2.6"></script>
+    <script src="js/config.js?v=2.7"></script>
+    <script src="js/supabaseClient.js?v=2.7"></script>
+    <script src="js/auth.js?v=2.7"></script>
+    <script src="js/db.js?v=2.7"></script>
+    <script src="js/dashboard.js?v=2.7"></script>
+    <script src="js/ui.js?v=2.7"></script>
+    <script src="js/export.js?v=2.7"></script>
+    <script src="js/googleDriveExport.js?v=2.7"></script>
+    <script src="js/app.js?v=2.7"></script>
   </body>
 </html>

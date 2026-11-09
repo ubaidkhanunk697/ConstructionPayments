@@ -172,7 +172,21 @@ const GoogleDriveExport = {
       this.setLoadingState(true, "Uploading to Drive...");
       UI.showToast("Uploading Excel workbook directly to your Google Drive...", "info", "Uploading");
 
-      // Step 3: Construct multipart/related request payload
+      // Step 3: Convert Excel blob to Base64 for RFC-compliant multipart payload
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          const base64 = typeof result === "string" && result.includes(",")
+            ? result.split(",")[1]
+            : result;
+          resolve(base64);
+        };
+        reader.onerror = (err) => reject(err || new Error("Failed to read Excel workbook for upload"));
+        reader.readAsDataURL(blob);
+      });
+
+      // Construct multipart/related request payload strictly adhering to Google Drive REST API v3
       const boundary = "-------ConstructionSystemUpload" + Date.now();
       const delimiter = `\r\n--${boundary}\r\n`;
       const closeDelimiter = `\r\n--${boundary}--`;
@@ -183,32 +197,33 @@ const GoogleDriveExport = {
         description: `Construction Financial Report generated on ${new Date().toLocaleString("en-PK")} (${materialsCount} records).`
       };
 
-      const multipartBody = new Blob(
-        [
-          delimiter,
-          "Content-Type: application/json; charset=UTF-8\r\n\r\n",
-          JSON.stringify(metadata),
-          delimiter,
-          "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n",
-          blob,
-          closeDelimiter
-        ],
-        { type: `multipart/related; boundary=${boundary}` }
-      );
+      const multipartRequestBody =
+        delimiter +
+        "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
+        JSON.stringify(metadata) +
+        delimiter +
+        "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n" +
+        "Content-Transfer-Encoding: base64\r\n\r\n" +
+        base64Data +
+        closeDelimiter;
 
-      // Step 4: Dispatch POST to Google Drive API v3
+      // Step 4: Dispatch POST to Google Drive API v3 with explicit Content-Type boundary
       const uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,webContentLink";
       const response = await fetch(uploadUrl, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": `multipart/related; boundary=${boundary}`
         },
-        body: multipartBody
+        body: multipartRequestBody
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const errMsg = errorData.error?.message || `Google Drive API returned status ${response.status}`;
+        let errMsg = errorData.error?.message || `Google Drive API returned status ${response.status}`;
+        if (response.status === 403 && errMsg.toLowerCase().includes("drive api")) {
+          errMsg = "Google Drive API is not enabled in your Google Cloud Console project. Please enable 'Google Drive API' in Google Cloud Console.";
+        }
         throw new Error(errMsg);
       }
 
@@ -233,11 +248,19 @@ const GoogleDriveExport = {
       const isUserClosed = err.message?.includes("popup_closed") || err.message?.includes("access_denied");
       if (isUserClosed) {
         UI.showToast("Google authorization request was cancelled.", "info", "Authorization Cancelled");
+      } else if (err.name === "TypeError" && err.message?.includes("Failed to fetch")) {
+        UI.showToast(
+          "Network request to Google Drive was blocked. Please ensure 'https://nawazconstructions.vercel.app' is added to Authorized JavaScript origins and Google Drive API is enabled in your Google Cloud Console.",
+          "error",
+          "Google Drive Connection Error",
+          10000
+        );
       } else {
         UI.showToast(
           err.message || "Failed to upload file to Google Drive. Please check your credentials.",
           "error",
-          "Google Drive Error"
+          "Google Drive Error",
+          9000
         );
       }
     } finally {

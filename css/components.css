@@ -116,6 +116,23 @@
   justify-content: center;
 }
 
+/* Google Drive Brand Icon & Export Action Button */
+.gdrive-logo-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+.btn:hover .gdrive-logo-icon {
+  transform: scale(1.1);
+}
+
+.btn-export-action {
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
 /* --------------------------------------------------------------------------
    Cards & Panels
    -------------------------------------------------------------------------- */

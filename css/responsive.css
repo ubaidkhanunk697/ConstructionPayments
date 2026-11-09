@@ -162,6 +162,55 @@
     display: none; /* Hide date in tight mobile header; accessible on dashboard page */
   }
 
+  /* Mobile Button Responsiveness: Hide text labels, show logos/icons */
+  .btn-label-responsive {
+    display: none !important;
+  }
+
+  .header-right {
+    gap: var(--space-2) !important;
+    flex-shrink: 0;
+  }
+
+  .header-right .btn {
+    padding: 0.45rem 0.65rem !important;
+    min-width: 40px !important;
+    height: 38px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+
+  .header-right .gdrive-logo-icon {
+    width: 18px !important;
+    height: 16px !important;
+  }
+
+  .header-right #btn-add-material-header {
+    padding: 0.45rem 0.75rem !important;
+  }
+
+  .page-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: var(--space-2) !important;
+  }
+
+  .page-actions .btn-export-action {
+    width: auto !important;
+    min-width: 38px !important;
+    height: 36px !important;
+    padding: 0.35rem 0.65rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+
   .modal-container {
     max-height: 94vh;
     border-radius: var(--radius-lg);
@@ -215,14 +264,36 @@
     grid-template-columns: 1fr;
   }
 
-  .page-actions {
-    flex-direction: column;
-    width: 100%;
+  .top-header {
+    padding: 0 var(--space-3) !important;
   }
 
-  .page-actions .btn {
-    width: 100%;
-    min-height: 44px;
+  .header-right {
+    gap: 6px !important;
+  }
+
+  .header-right .btn {
+    min-width: 36px !important;
+    height: 36px !important;
+    padding: 0.35rem 0.5rem !important;
+  }
+
+  .page-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: var(--space-2) !important;
+    width: 100% !important;
+  }
+
+  .page-actions .btn-export-action {
+    width: auto !important;
+    flex: 0 0 auto !important;
+    min-width: 40px !important;
+    height: 38px !important;
+    padding: 0.4rem 0.65rem !important;
   }
 
   .modal-footer {
