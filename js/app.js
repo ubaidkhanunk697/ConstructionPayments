@@ -106,6 +106,8 @@ function setupActionButtons() {
   const exportBtnHeader = document.getElementById("btn-export-excel");
   const exportBtnToolbar = document.getElementById("btn-export-excel-toolbar");
   const exportNavLink = document.getElementById("nav-export-link");
+  const exportGDriveBtnHeader = document.getElementById("btn-export-gdrive");
+  const exportGDriveBtnToolbar = document.getElementById("btn-export-gdrive-toolbar");
 
   const openAddModal = () => {
     const form = document.getElementById("material-record-form");
@@ -170,6 +172,19 @@ function setupActionButtons() {
   if (exportBtnHeader) exportBtnHeader.addEventListener("click", handleExportClick);
   if (exportBtnToolbar) exportBtnToolbar.addEventListener("click", handleExportClick);
   if (exportNavLink) exportNavLink.addEventListener("click", handleExportClick);
+
+  // Wire Save to Google Drive actions to GoogleDriveExport
+  const handleGDriveExportClick = async (e) => {
+    if (e) e.preventDefault();
+    if (typeof GoogleDriveExport !== "undefined") {
+      await GoogleDriveExport.saveToGoogleDrive();
+    } else {
+      UI.showToast("Google Drive export engine is loading, please try again in a moment.", "warning", "Exporting");
+    }
+  };
+
+  if (exportGDriveBtnHeader) exportGDriveBtnHeader.addEventListener("click", handleGDriveExportClick);
+  if (exportGDriveBtnToolbar) exportGDriveBtnToolbar.addEventListener("click", handleGDriveExportClick);
 }
 
 /**

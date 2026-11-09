@@ -53,6 +53,23 @@ const CONFIG = {
     ALLOWED_OWNER_UUID: (env.ALLOWED_OWNER_UUID || "").trim()
   },
 
+  // Google Drive REST API & Google Identity Services (GIS)
+  GOOGLE_DRIVE: {
+    // Paste your OAuth 2.0 Web Client ID from Google Cloud Console
+    CLIENT_ID: (env.GOOGLE_CLIENT_ID || "").trim(),
+    SCOPE: "https://www.googleapis.com/auth/drive.file"
+  },
+
+  /**
+   * Check if Google Drive Client ID has been configured
+   */
+  isGoogleDriveConfigured() {
+    return Boolean(
+      this.GOOGLE_DRIVE?.CLIENT_ID &&
+      !this.GOOGLE_DRIVE.CLIENT_ID.includes("YOUR_")
+    );
+  },
+
   /**
    * Check if Supabase credentials have been configured
    */

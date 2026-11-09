@@ -26,6 +26,9 @@
     <!-- Supabase Official JavaScript Client SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+    <!-- Google Identity Services (GIS) Official Library for Google Drive Export -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <!-- Modular Stylesheets (Guaranteed compatibility with file:// and http://) -->
     <link rel="stylesheet" href="css/variables.css" />
     <link rel="stylesheet" href="css/base.css" />
@@ -140,14 +143,26 @@
           </div>
 
           <div class="header-right">
-            <!-- Excel Export Action -->
+            <!-- Excel Export Action: Local Download -->
             <button
               type="button"
               id="btn-export-excel"
               class="btn btn-secondary"
+              title="Download Excel spreadsheet to your computer"
             >
               <i data-lucide="download"></i>
               <span class="btn-label-responsive">Download Excel</span>
+            </button>
+
+            <!-- Excel Export Action: Google Drive Direct Upload -->
+            <button
+              type="button"
+              id="btn-export-gdrive"
+              class="btn btn-secondary"
+              title="Save Excel spreadsheet directly to your Google Drive"
+            >
+              <i data-lucide="cloud-upload" style="color: #4285F4;"></i>
+              <span class="btn-label-responsive">Save to Drive</span>
             </button>
 
             <!-- Primary Add Material Button -->
@@ -326,13 +341,25 @@
                   type="button"
                   id="btn-export-excel-toolbar"
                   class="btn btn-secondary btn-sm"
-                  title="Download all records as Excel"
+                  title="Download all records as Excel to local storage"
                 >
                   <i
                     data-lucide="file-spreadsheet"
                     style="width: 14px; height: 14px; color: var(--color-paid)"
                   ></i>
-                  <span>Download Excel</span>
+                  <span>Download Excel (Local)</span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-export-gdrive-toolbar"
+                  class="btn btn-secondary btn-sm"
+                  title="Save all records as Excel directly to your Google Drive"
+                >
+                  <i
+                    data-lucide="cloud-upload"
+                    style="width: 14px; height: 14px; color: #4285F4"
+                  ></i>
+                  <span>Save to Drive</span>
                 </button>
               </div>
             </div>
@@ -1839,13 +1866,14 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="js/config.js?v=2.2"></script>
-    <script src="js/supabaseClient.js?v=2.2"></script>
-    <script src="js/auth.js?v=2.2"></script>
-    <script src="js/db.js?v=2.2"></script>
-    <script src="js/dashboard.js?v=2.2"></script>
-    <script src="js/ui.js?v=2.2"></script>
-    <script src="js/export.js?v=2.4"></script>
-    <script src="js/app.js?v=2.2"></script>
+    <script src="js/config.js?v=2.5"></script>
+    <script src="js/supabaseClient.js?v=2.5"></script>
+    <script src="js/auth.js?v=2.5"></script>
+    <script src="js/db.js?v=2.5"></script>
+    <script src="js/dashboard.js?v=2.5"></script>
+    <script src="js/ui.js?v=2.5"></script>
+    <script src="js/export.js?v=2.5"></script>
+    <script src="js/googleDriveExport.js?v=2.5"></script>
+    <script src="js/app.js?v=2.5"></script>
   </body>
 </html>

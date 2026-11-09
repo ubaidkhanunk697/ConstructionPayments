@@ -29,6 +29,12 @@
   pointer-events: none;
 }
 
+.btn-loading {
+  opacity: 0.75;
+  cursor: wait !important;
+  pointer-events: none;
+}
+
 .btn-primary {
   background-color: var(--color-primary);
   color: var(--color-text-white);

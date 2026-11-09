@@ -8,82 +8,103 @@ const ExportService = {
   isExporting: false,
 
   /**
-   * Main Export Controller
-   * Downloads all material records, payment transactions, and financial aggregates
+   * Generate Complete Excel Workbook and Binary Blob
+   * Reused across Local Download and Google Drive Export
+   */
+  async generateExcelBlob() {
+    if (typeof XLSX === "undefined") {
+      throw new Error("SheetJS library is not loaded. Please verify your internet connection.");
+    }
+
+    // 1. Fetch ALL records directly from Supabase (not just filtered/visible ones)
+    let materials = [];
+    let payments = [];
+
+    if (typeof CONFIG !== "undefined" && CONFIG.isConfigured() && typeof DB !== "undefined") {
+      const [materialsData, paymentsData] = await Promise.all([
+        DB.fetchMaterialRecords(),
+        DB.fetchAllPaymentsForExport()
+      ]);
+      materials = materialsData || [];
+      payments = paymentsData || [];
+    } else if (typeof Dashboard !== "undefined") {
+      materials = Dashboard.cachedMaterials || [];
+      payments = Dashboard.cachedPayments || [];
+    }
+
+    // 2. Compute accurate financial aggregates across ALL fetched materials
+    const summaryMetrics = this.computeSummaryMetrics(materials, payments);
+
+    // 3. Build Worksheets
+    const wb = XLSX.utils.book_new();
+
+    // Build material ID lookup map (UUID -> numeric Record ID: 1, 2, 3...)
+    // so Payment History worksheet can cross-reference records by numeric ID
+    const materialIdMap = {};
+    const sortedMaterialsForMap = [...materials].sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (timeA && timeB && timeA !== timeB) return timeA - timeB;
+      const dateA = a.purchase_date || "";
+      const dateB = b.purchase_date || "";
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    });
+    sortedMaterialsForMap.forEach((m, idx) => {
+      if (m.id) materialIdMap[m.id] = idx + 1;
+    });
+
+    // Worksheet 1: Material Records
+    const wsMaterials = this.buildMaterialsWorksheet(materials);
+    XLSX.utils.book_append_sheet(wb, wsMaterials, "Material Records");
+
+    // Worksheet 2: Payment History
+    const wsPayments = this.buildPaymentsWorksheet(payments, materialIdMap);
+    XLSX.utils.book_append_sheet(wb, wsPayments, "Payment History");
+
+    // Worksheet 3: Summary
+    const wsSummary = this.buildSummaryWorksheet(summaryMetrics);
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+    // 4. Generate timestamped filename
+    const today = (typeof UI !== "undefined" && typeof UI.getTodayDateString === "function")
+      ? UI.getTodayDateString()
+      : new Date().toISOString().split("T")[0];
+    const filename = `Construction_Financial_Report_${today}.xlsx`;
+
+    // 5. Generate Binary Blob
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    return {
+      wb,
+      blob,
+      filename,
+      materialsCount: materials.length,
+      paymentsCount: payments.length
+    };
+  },
+
+  /**
+   * Main Export Controller (Local File Download)
    */
   async exportToExcel() {
     if (this.isExporting) return; // Prevent concurrent export triggers
 
-    if (typeof XLSX === "undefined") {
-      UI.showToast("SheetJS library is not loaded. Please verify your internet connection.", "error", "Export Error");
-      return;
-    }
-
     this.setLoadingState(true);
 
     try {
-      UI.showToast("Fetching all project records from database...", "info", "Exporting Excel");
+      UI.showToast("Generating Excel spreadsheet...", "info", "Exporting Excel");
 
-      // 1. Fetch ALL records directly from Supabase (not just filtered/visible ones)
-      let materials = [];
-      let payments = [];
+      const { wb, filename, materialsCount, paymentsCount } = await this.generateExcelBlob();
 
-      if (CONFIG.isConfigured() && typeof DB !== "undefined") {
-        const [materialsData, paymentsData] = await Promise.all([
-          DB.fetchMaterialRecords(),
-          DB.fetchAllPaymentsForExport()
-        ]);
-        materials = materialsData || [];
-        payments = paymentsData || [];
-      } else if (typeof Dashboard !== "undefined") {
-        // Fallback to cached materials in unconfigured / staging mode
-        materials = Dashboard.cachedMaterials || [];
-        payments = Dashboard.cachedPayments || [];
-      }
-
-      // 2. Compute accurate financial aggregates across ALL fetched materials
-      const summaryMetrics = this.computeSummaryMetrics(materials, payments);
-
-      // 3. Build Worksheets
-      const wb = XLSX.utils.book_new();
-
-      // Build material ID lookup map (UUID -> numeric Record ID: 1, 2, 3...)
-      // so Payment History worksheet can cross-reference records by numeric ID
-      const materialIdMap = {};
-      const sortedMaterialsForMap = [...materials].sort((a, b) => {
-        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-        if (timeA && timeB && timeA !== timeB) return timeA - timeB;
-        const dateA = a.purchase_date || "";
-        const dateB = b.purchase_date || "";
-        if (dateA !== dateB) return dateA.localeCompare(dateB);
-        return String(a.id || "").localeCompare(String(b.id || ""));
-      });
-      sortedMaterialsForMap.forEach((m, idx) => {
-        if (m.id) materialIdMap[m.id] = idx + 1;
-      });
-
-      // Worksheet 1: Material Records
-      const wsMaterials = this.buildMaterialsWorksheet(materials);
-      XLSX.utils.book_append_sheet(wb, wsMaterials, "Material Records");
-
-      // Worksheet 2: Payment History
-      const wsPayments = this.buildPaymentsWorksheet(payments, materialIdMap);
-      XLSX.utils.book_append_sheet(wb, wsPayments, "Payment History");
-
-      // Worksheet 3: Summary
-      const wsSummary = this.buildSummaryWorksheet(summaryMetrics);
-      XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
-
-      // 4. Generate timestamped filename
-      const today = UI.getTodayDateString();
-      const filename = `Construction_Financial_Report_${today}.xlsx`;
-
-      // 5. Trigger download via SheetJS
+      // Trigger download via SheetJS
       XLSX.writeFile(wb, filename);
 
       UI.showToast(
-        `Successfully exported ${materials.length} material(s) and ${payments.length} payment(s) to ${filename}`,
+        `Successfully exported ${materialsCount} material(s) and ${paymentsCount} payment(s) to ${filename}`,
         "success",
         "Excel Downloaded"
       );
