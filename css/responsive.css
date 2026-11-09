@@ -175,6 +175,30 @@
   }
 }
 
+/* Tablets & Mobile Phones (<= 640px) */
+@media (max-width: 640px) {
+  .payment-context-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .payment-context-title-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    width: 100%;
+  }
+
+  .payment-context-header #btn-history-add-payment {
+    width: 100%;
+    justify-content: center;
+    min-height: 40px;
+  }
+}
+
 /* Mobile Phones (<= 480px) */
 @media (max-width: 480px) {
   .metric-grid {
@@ -198,6 +222,18 @@
   .modal-footer .btn {
     width: 100%;
     min-height: 44px;
+  }
+
+  .payment-context-item {
+    padding: var(--space-1);
+  }
+
+  .payment-context-label {
+    font-size: 10px;
+  }
+
+  .payment-context-value {
+    font-size: 12px;
   }
 
   .mobile-card-financials {
