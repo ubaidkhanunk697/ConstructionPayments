@@ -95,36 +95,35 @@ async function runAudit() {
   vm.runInNewContext(authCode, domSandbox);
   const Auth = domSandbox.Auth;
 
-  // Test 1.1: Authorized Google account verification
+  // Test 1.1: Dynamic Authenticated User Acceptance
   const testOwnerEmail = 'owner.house.project@gmail.com';
-  CONFIG.AUTH.ALLOWED_OWNER_EMAIL = testOwnerEmail;
-  recordTest('Auth', 'Authorized Google Account Acceptance', Auth.isAuthorizedOwner({ email: testOwnerEmail, id: 'owner-123' }) === true);
+  recordTest('Auth', 'Dynamic Authenticated User Acceptance', Auth.isAuthorizedOwner({ email: testOwnerEmail, id: 'owner-123' }) === true);
 
-  // Test 1.2: Unauthorized account rejection
-  const unauthorizedEmail = 'attacker@malicious.com';
-  recordTest('Auth', 'Unauthorized Account Rejection', Auth.isAuthorizedOwner({ email: unauthorizedEmail, id: 'intruder-456' }) === false);
+  // Test 1.2: Null / Empty user rejection
+  recordTest('Auth', 'Unauthenticated User Rejection', Auth.isAuthorizedOwner(null) === false && Auth.isAuthorizedOwner({}) === false);
 
-  // Test 1.3: Case-insensitive email comparison
-  recordTest('Auth', 'Case-insensitive Email Comparison', Auth.isAuthorizedOwner({ email: testOwnerEmail.toUpperCase(), id: 'owner-123' }) === true);
+  // Test 1.3: User with valid ID accepted dynamically
+  recordTest('Auth', 'Dynamic ID Acceptance', Auth.isAuthorizedOwner({ id: 'owner-123' }) === true);
 
   // Test 1.4: Require Owner Auth on Unauthenticated Session
   Auth.client = {
     auth: {
       getSession: async () => ({ data: { session: null }, error: null }),
-      signOut: async () => {}
+      signOut: async () => {},
+      onAuthStateChange: () => {}
     }
   };
   const unauthSessionResult = await Auth.requireOwnerAuth();
   recordTest('Auth', 'Unauthenticated Session Rejection', unauthSessionResult.status === 'unauthenticated');
 
-  // Test 1.5: Require Owner Auth on Unauthorized Google Account
+  // Test 1.5: Require Owner Auth on Valid Authenticated Session
   Auth.client.auth.getSession = async () => ({
-    data: { session: { user: { id: 'usr-999', email: 'intruder@other.com' } } },
+    data: { session: { user: { id: 'usr-999', email: 'owner@project.com' } } },
     error: null
   });
   domSandbox.window.location.href = 'dashboard.html';
-  const unauthAccountResult = await Auth.requireOwnerAuth();
-  recordTest('Auth', 'Unauthorized Google Account Ejection', unauthAccountResult.status === 'unauthorized');
+  const authAccountResult = await Auth.requireOwnerAuth();
+  recordTest('Auth', 'Authenticated Session Acceptance', authAccountResult.status === 'authorized');
 
   // Test 1.6: Logout Lifecycle Execution
   let signOutCalled = false;

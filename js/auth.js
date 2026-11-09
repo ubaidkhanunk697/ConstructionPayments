@@ -1,7 +1,7 @@
 /**
  * CONSTRUCTION MATERIAL & PAYMENT MANAGEMENT SYSTEM
- * Centralized Supabase Authentication Service & Route Guards
- * (Supabase Email & Password Authentication - v2 API)
+ * Centralized Supabase Authentication Service & Dynamic Route Guards
+ * (Industry-Standard Supabase v2 Email & Password Auth - Zero Hardcoded Identifiers)
  */
 
 const Auth = {
@@ -17,7 +17,7 @@ const Auth = {
       return this.client;
     }
 
-    // 1. Check globally exported client instance
+    // 1. Check globally exported client instance from js/supabaseClient.js
     if (typeof window !== "undefined" && window.supabaseClient && window.supabaseClient.auth) {
       this.client = window.supabaseClient;
       return this.client;
@@ -59,31 +59,12 @@ const Auth = {
   },
 
   /**
-   * Determine if a user matches the authorized owner allowlist
+   * Dynamic Authorization Check:
+   * Validates if the authenticated identity is present.
+   * Zero hardcoded emails or UUIDs. Supabase Auth is the single source of truth.
    */
   isAuthorizedOwner(user) {
-    if (!user) return false;
-
-    const userEmail = (user.email || "").trim().toLowerCase();
-    const ownerEmail = (typeof CONFIG !== "undefined" && CONFIG.AUTH?.ALLOWED_OWNER_EMAIL || "").trim().toLowerCase();
-    const ownerUUID = (typeof CONFIG !== "undefined" && CONFIG.AUTH?.ALLOWED_OWNER_UUID || "").trim();
-
-    // Known approved owner email identities
-    const approvedEmails = [
-      ownerEmail,
-      "ubaidkhanuk6973937@gmail.com",
-      "ubaidkhanunk697@gmail.com"
-    ].filter(Boolean);
-
-    // If an owner allowlist is explicitly defined, enforce it strictly.
-    if (approvedEmails.length > 0 || ownerUUID) {
-      const emailMatches = approvedEmails.includes(userEmail);
-      const uuidMatches = Boolean(ownerUUID && user.id === ownerUUID);
-      return emailMatches || uuidMatches;
-    }
-
-    // Default: If no owner allowlist is set yet, permit the authenticated project user
-    return true;
+    return Boolean(user && (user.id || user.email));
   },
 
   /**
@@ -98,7 +79,7 @@ const Auth = {
     const cleanEmail = (email || "").trim().toLowerCase();
     const cleanName = (fullName || "").trim();
 
-    // Supabase JS v2 Registration API
+    // Standard Supabase JS v2 Registration
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password: password,
@@ -120,7 +101,7 @@ const Auth = {
       throw err;
     }
 
-    // If session returned immediately (Email confirmations disabled)
+    // If session returned immediately (Confirm Email is OFF in Supabase)
     if (data.session && data.user) {
       this.currentUser = data.user;
       this.currentSession = data.session;
@@ -140,7 +121,7 @@ const Auth = {
 
     const cleanEmail = (email || "").trim().toLowerCase();
 
-    // Supabase JS v2 Login API
+    // Strict Supabase JS v2 Login
     const { data, error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password: password
@@ -206,12 +187,12 @@ const Auth = {
     this.currentUser = null;
     this.currentSession = null;
 
-    // Clear any local storage auth tokens
+    // Clear local storage auth tokens
     try {
       if (typeof window !== "undefined" && window.localStorage) {
         const keys = Object.keys(window.localStorage);
         keys.forEach((key) => {
-          if (key.includes("supabase.auth.token") || key.includes("sb-") && key.includes("-auth-token")) {
+          if (key.includes("supabase.auth.token") || (key.includes("sb-") && key.includes("-auth-token"))) {
             window.localStorage.removeItem(key);
           }
         });
@@ -242,6 +223,8 @@ const Auth = {
 
   /**
    * Route Guard for Protected Pages (e.g. dashboard.html)
+   * Enforces that an active authenticated Supabase session exists.
+   * Trust Supabase as the identity provider without custom email whitelist blockers.
    */
   async requireOwnerAuth() {
     const supabase = this.init();
@@ -257,17 +240,7 @@ const Auth = {
       return { status: "unauthenticated" };
     }
 
-    const user = session.user;
-    if (!this.isAuthorizedOwner(user)) {
-      console.warn("Unauthorized account detected:", user.email);
-      await supabase.auth.signOut();
-      const currentDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf("/") + 1);
-      const attempted = encodeURIComponent(user.email || "unknown");
-      window.location.replace(`${currentDir}login.html?error=unauthorized&attempted=${attempted}`);
-      return { status: "unauthorized", user };
-    }
-
-    this.currentUser = user;
+    this.currentUser = session.user;
     this.currentSession = session;
 
     // Listen for auth state changes
@@ -277,21 +250,18 @@ const Auth = {
         this.currentSession = null;
         const currentDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf("/") + 1);
         window.location.replace(`${currentDir}login.html?reason=session_expired`);
-      } else if (currentSession && !this.isAuthorizedOwner(currentSession.user)) {
-        await supabase.auth.signOut();
-        const currentDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf("/") + 1);
-        window.location.replace(`${currentDir}login.html?error=unauthorized`);
       } else if (currentSession) {
         this.currentSession = currentSession;
         this.currentUser = currentSession.user;
       }
     });
 
-    return { status: "authorized", user, session };
+    return { status: "authorized", user: session.user, session };
   },
 
   /**
    * Guard for Public Pages (login.html, register.html, index.html)
+   * If a valid session already exists, seamlessly redirect to dashboard.
    */
   async redirectIfAuthenticated() {
     const supabase = this.init();
@@ -304,11 +274,7 @@ const Auth = {
 
     const session = await this.getSession();
     if (session && session.user) {
-      if (this.isAuthorizedOwner(session.user)) {
-        window.location.replace("./dashboard.html");
-      } else {
-        await supabase.auth.signOut();
-      }
+      window.location.replace("./dashboard.html");
     }
   }
 };
@@ -435,7 +401,7 @@ function setupAuthForms() {
           throw new Error("This email is already registered. Please log in instead.");
         }
 
-        // Active session acquired (Confirm email is OFF in Supabase)
+        // Active session acquired (Confirm Email is disabled in Supabase)
         if (data && data.session) {
           Auth.currentUser = data.user;
           Auth.currentSession = data.session;

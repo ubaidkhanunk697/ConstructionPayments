@@ -102,9 +102,9 @@ function runAuthSuite() {
   console.log("\n--- 6. Protected Routes & Owner Security ---");
   assert("Security", "Auth.requireOwnerAuth() implemented as route guard", authJs.includes("async requireOwnerAuth()"));
   assert("Security", "Unauthenticated visitors redirected to login.html", authJs.includes("login.html?reason=unauthenticated"));
-  assert("Security", "Unauthorized accounts signed out and redirected", authJs.includes("login.html?error=unauthorized"));
-  assert("Security", "Owner allowlist check isAuthorizedOwner() implemented", authJs.includes("isAuthorizedOwner(user)"));
-  assert("Security", "Owner UUID configuration fallback preserved", configJs.includes("55a43065-dcb8-450a-a68f-d05fd221a5bb"));
+  assert("Security", "Session expiration redirect implemented", authJs.includes("login.html?reason=session_expired"));
+  assert("Security", "Dynamic authorization check isAuthorizedOwner() implemented", authJs.includes("isAuthorizedOwner(user)"));
+  assert("Security", "Zero hardcoded owner emails in auth.js", !authJs.includes("ubaidkhanuk6973937@gmail.com") && !authJs.includes("dr.nawaz2009@gmail.com"));
   assert("Security", "Sidebar Logout button exists in dashboard.html", dashHtml.includes('id="logout-btn"'));
   assert("Security", "Logout button wired up to Auth.signOut() in app.js", appJs.includes("Auth.signOut()"));
 

@@ -347,11 +347,10 @@
           "You have successfully signed out of the system. Enter your email and password to sign in again."
         );
       } else if (params.get("error") === "unauthorized") {
-        const attempted = params.get("attempted") || "This account";
         showAlert(
           "danger",
           "Access Denied",
-          `<strong>${attempted}</strong> is not authorized as the project owner. Please sign in with the approved owner account.`
+          "Your session could not be verified. Please sign in with your email and password."
         );
       } else if (params.get("reason") === "session_expired") {
         showAlert(

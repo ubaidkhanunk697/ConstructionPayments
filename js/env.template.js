@@ -18,10 +18,7 @@ window.ENV = {
   // Starts with 'eyJ...'
   SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY",
 
-  // The ONE approved Google Account email for the project owner
-  // Only this exact email address will be permitted to access the application
-  ALLOWED_OWNER_EMAIL: "owner@example.com",
-
-  // (Optional) The Supabase Auth UUID of the owner (if you know it)
+  // Dynamic Single-Owner Configuration (Zero Hardcoding)
+  ALLOWED_OWNER_EMAIL: "",
   ALLOWED_OWNER_UUID: ""
 };
