@@ -1,7 +1,7 @@
 /**
  * CONSTRUCTION MATERIAL & PAYMENT MANAGEMENT SYSTEM
  * Excel Export Engine using SheetJS (xlsx)
- * Generates professional multi-sheet workbooks directly from Supabase
+ * Generates professional single-sheet styled financial workbooks
  */
 
 const ExportService = {
@@ -35,36 +35,10 @@ const ExportService = {
     // 2. Compute accurate financial aggregates across ALL fetched materials
     const summaryMetrics = this.computeSummaryMetrics(materials, payments);
 
-    // 3. Build Worksheets
+    // 3. Build Single Worksheet: "Material Records"
     const wb = XLSX.utils.book_new();
-
-    // Build material ID lookup map (UUID -> numeric Record ID: 1, 2, 3...)
-    // so Payment History worksheet can cross-reference records by numeric ID
-    const materialIdMap = {};
-    const sortedMaterialsForMap = [...materials].sort((a, b) => {
-      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      if (timeA && timeB && timeA !== timeB) return timeA - timeB;
-      const dateA = a.purchase_date || "";
-      const dateB = b.purchase_date || "";
-      if (dateA !== dateB) return dateA.localeCompare(dateB);
-      return String(a.id || "").localeCompare(String(b.id || ""));
-    });
-    sortedMaterialsForMap.forEach((m, idx) => {
-      if (m.id) materialIdMap[m.id] = idx + 1;
-    });
-
-    // Worksheet 1: Material Records
-    const wsMaterials = this.buildMaterialsWorksheet(materials);
+    const wsMaterials = this.buildMaterialsWorksheet(materials, summaryMetrics);
     XLSX.utils.book_append_sheet(wb, wsMaterials, "Material Records");
-
-    // Worksheet 2: Payment History
-    const wsPayments = this.buildPaymentsWorksheet(payments, materialIdMap);
-    XLSX.utils.book_append_sheet(wb, wsPayments, "Payment History");
-
-    // Worksheet 3: Summary
-    const wsSummary = this.buildSummaryWorksheet(summaryMetrics);
-    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
 
     // 4. Generate timestamped filename
     const today = (typeof UI !== "undefined" && typeof UI.getTodayDateString === "function")
@@ -98,13 +72,13 @@ const ExportService = {
     try {
       UI.showToast("Generating Excel spreadsheet...", "info", "Exporting Excel");
 
-      const { wb, filename, materialsCount, paymentsCount } = await this.generateExcelBlob();
+      const { wb, filename, materialsCount } = await this.generateExcelBlob();
 
       // Trigger download via SheetJS
       XLSX.writeFile(wb, filename);
 
       UI.showToast(
-        `Successfully exported ${materialsCount} material(s) and ${paymentsCount} payment(s) to ${filename}`,
+        `Successfully exported ${materialsCount} material record(s) to ${filename}`,
         "success",
         "Excel Downloaded"
       );
@@ -118,106 +92,401 @@ const ExportService = {
   },
 
   /**
-   * Helper: Get Weekday Name
+   * Helper: Parse Date String into Excel Serial Date / Formatted String dd-mmm-yy
    */
-  getDayName(dateStr) {
-    if (!dateStr) return "";
-    if (typeof UI !== "undefined" && typeof UI.getDayName === "function") {
-      return UI.getDayName(dateStr);
+  parseDateValue(dateStr) {
+    if (!dateStr) return { value: "", formatted: "" };
+    try {
+      const parts = String(dateStr).split("T")[0].split("-");
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+          const dateObj = new Date(Date.UTC(year, month, day, 0, 0, 0));
+          const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+          const dayStr = String(day).padStart(2, "0");
+          const monthStr = months[month] || "Jan";
+          const shortYear = String(year).slice(-2);
+          const formatted = `${dayStr}-${monthStr}-${shortYear}`;
+          return { value: dateObj, formatted };
+        }
+      }
+    } catch (e) {
+      // Fallback
     }
-    const parts = dateStr.split("-").map(Number);
-    if (parts.length === 3) {
-      const d = new Date(parts[0], parts[1] - 1, parts[2]);
-      return d.toLocaleDateString("en-US", { weekday: "long" });
-    }
-    return "";
+    return { value: String(dateStr), formatted: String(dateStr) };
   },
 
   /**
-   * Build Worksheet 1: Material Records
-   * Columns: Record ID, Purchase Date, Day, Person Name, Material Type, Material Quantity, Unit,
-   * Total Amount Due (PKR), Paid Amount (PKR), Pending Amount (PKR), Notes
-   * Sorted so that first entered data appears first (Record ID: 1, 2, 3...)
+   * Build Single Worksheet: "Material Records"
+   * Structure:
+   *  Row 1 (idx 0): Summary Labels ("Total Due", "Total Paid", "Total Pending")
+   *  Row 2 (idx 1): Aggregated numeric values from dataset
+   *  Row 3 (idx 2): Clean Separator Row
+   *  Row 4 (idx 3): Table Headers: ID, Date, Supplier, Material, Qty, Unit, Rate, Total, Paid, Pending, Notes
+   *  Row 5+ (idx 4+): Data rows sorted chronologically (ID: 1, 2, 3...)
    */
-  buildMaterialsWorksheet(materials) {
-    const headers = [
-      "Record ID",
-      "Purchase Date",
-      "Day",
-      "Person Name",
-      "Material Type",
-      "Material Quantity",
+  buildMaterialsWorksheet(materials = [], summaryMetrics = null) {
+    const metrics = summaryMetrics || this.computeSummaryMetrics(materials, []);
+
+    // 1. Construct Row Arrays (AOA)
+    // Row 1: Top Summary Labels
+    const rowSummaryLabels = ["Total Due", "Total Paid", "Total Pending", "", "", "", "", "", "", "", ""];
+
+    // Row 2: Top Summary Numeric Values
+    const rowSummaryValues = [
+      Number(metrics.totalAmountDue) || 0,
+      Number(metrics.totalPaid) || 0,
+      Number(metrics.totalPending) || 0,
+      "", "", "", "", "", "", "", ""
+    ];
+
+    // Row 3: Clean Separator Row
+    const rowSeparator = ["", "", "", "", "", "", "", "", "", "", ""];
+
+    // Row 4: Table Headers (Omit Day column; compact exact names)
+    const tableHeaders = [
+      "ID",
+      "Date",
+      "Supplier",
+      "Material",
+      "Qty",
       "Unit",
-      "Total Amount Due (PKR)",
-      "Paid Amount (PKR)",
-      "Pending Amount (PKR)",
+      "Rate",
+      "Total",
+      "Paid",
+      "Pending",
       "Notes"
     ];
 
-    const rows = [headers];
+    const rows = [
+      rowSummaryLabels,
+      rowSummaryValues,
+      rowSeparator,
+      tableHeaders
+    ];
 
-    if (!materials || materials.length === 0) {
+    // Sort chronologically: first entered data (earliest created/purchased) appears first
+    const sortedMaterials = [...materials].sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (timeA && timeB && timeA !== timeB) return timeA - timeB;
+      const dateA = a.purchase_date || "";
+      const dateB = b.purchase_date || "";
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    });
+
+    if (sortedMaterials.length === 0) {
       rows.push(["No material records recorded yet.", "", "", "", "", "", "", "", "", "", ""]);
     } else {
-      // Sort chronologically: first entered data (earliest created/purchased) appears first
-      const sortedMaterials = [...materials].sort((a, b) => {
-        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-        if (timeA && timeB && timeA !== timeB) return timeA - timeB;
-        const dateA = a.purchase_date || "";
-        const dateB = b.purchase_date || "";
-        if (dateA !== dateB) return dateA.localeCompare(dateB);
-        return String(a.id || "").localeCompare(String(b.id || ""));
-      });
-
       sortedMaterials.forEach((m, index) => {
-        // Record ID as a clean sequential number (1, 2, 3...)
-        const recordId = index + 1;
-        const purchaseDate = m.purchase_date || "";
-        const day = m.purchase_day || (m.purchase_date ? this.getDayName(m.purchase_date) : "");
-        const personName = m.person_name || "Unassigned";
-        const materialType = m.material_type || "General";
-        const quantity = m.quantity !== null && m.quantity !== undefined && m.quantity !== "" ? Number(m.quantity) : "";
+        const id = index + 1; // 1, 2, 3...
+        const dateParsed = this.parseDateValue(m.purchase_date);
+        const dateVal = dateParsed.value || "";
+        const supplier = m.person_name || "Unassigned";
+        const material = m.material_type || "General";
+        const qty = (m.quantity !== null && m.quantity !== undefined && m.quantity !== "")
+          ? Number(m.quantity)
+          : "";
         const unit = m.unit || "";
-        const totalDue = m.total_due !== null && m.total_due !== undefined ? Number(m.total_due) : "Unset";
-        const paidAmount = Number(m.paid_amount) || 0;
-        const pendingAmount = m.pending_amount !== null && m.pending_amount !== undefined ? Number(m.pending_amount) : "Unset";
+        const totalDue = (m.total_due !== null && m.total_due !== undefined && m.total_due !== "")
+          ? Number(m.total_due)
+          : 0;
+        const paid = Number(m.paid_amount) || 0;
+        const pending = (m.pending_amount !== null && m.pending_amount !== undefined)
+          ? Number(m.pending_amount)
+          : Math.max(0, totalDue - paid);
+
+        // Derive Rate: unit price if stored, or totalDue / qty
+        let rate = "";
+        if (m.rate !== null && m.rate !== undefined && m.rate !== "") {
+          rate = Number(m.rate);
+        } else if (m.unit_price !== null && m.unit_price !== undefined && m.unit_price !== "") {
+          rate = Number(m.unit_price);
+        } else if (typeof qty === "number" && qty > 0 && totalDue > 0) {
+          rate = Math.round((totalDue / qty) * 100) / 100;
+        }
+
         const notes = m.notes || "";
 
         rows.push([
-          recordId,
-          purchaseDate,
-          day,
-          personName,
-          materialType,
-          quantity,
+          id,
+          dateVal,
+          supplier,
+          material,
+          qty,
           unit,
+          rate,
           totalDue,
-          paidAmount,
-          pendingAmount,
+          paid,
+          pending,
           notes
         ]);
       });
     }
 
-    const ws = XLSX.utils.aoa_to_sheet(rows);
+    // 2. Convert to SheetJS Worksheet
+    const ws = XLSX.utils.aoa_to_sheet(rows, { dateNF: "dd-mmm-yy", cellDates: true });
+    ws._rows = rows;
+    ws.tableHeaders = tableHeaders;
 
-    // Freeze header row
-    ws["!freeze"] = { xSplit: 0, ySplit: 1 };
-    ws["!views"] = [{ state: "frozen", ySplit: 1 }];
+    // 3. Typography, Colors, Borders & Styles Definitions
+    const COLOR_NAVY = "1F4E78";
+    const COLOR_SOFT_BLUE = "DDEBF7";
+    const COLOR_RED = "C00000";
+    const COLOR_GREY_BORDER = "D9D9D9";
+    const COLOR_WHITE = "FFFFFF";
 
-    // Auto-compute column widths
-    ws["!cols"] = this.computeAutoColumnWidths(rows, [12, 16, 14, 20, 22, 18, 12, 22, 18, 22, 35]);
+    const fontBase = { name: "Arial", sz: 10 };
+    const fontHeader = { name: "Arial", sz: 10, bold: true, color: { rgb: COLOR_WHITE } };
+    const fontSummary = { name: "Arial", sz: 10, bold: true, color: { rgb: COLOR_NAVY } };
+    const fontPendingRed = { name: "Arial", sz: 10, bold: true, color: { rgb: COLOR_RED } };
+
+    const fillHeader = { fgColor: { rgb: COLOR_NAVY }, patternType: "solid" };
+    const fillSummary = { fgColor: { rgb: COLOR_SOFT_BLUE }, patternType: "solid" };
+
+    const borderThinGrey = {
+      top: { style: "thin", color: { rgb: COLOR_GREY_BORDER } },
+      bottom: { style: "thin", color: { rgb: COLOR_GREY_BORDER } },
+      left: { style: "thin", color: { rgb: COLOR_GREY_BORDER } },
+      right: { style: "thin", color: { rgb: COLOR_GREY_BORDER } }
+    };
+
+    const borderHeader = {
+      top: { style: "thin", color: { rgb: COLOR_NAVY } },
+      bottom: { style: "medium", color: { rgb: COLOR_NAVY } },
+      left: { style: "thin", color: { rgb: "2F5597" } },
+      right: { style: "thin", color: { rgb: "2F5597" } }
+    };
+
+    const borderSummary = {
+      top: { style: "thin", color: { rgb: "B4C6E7" } },
+      bottom: { style: "thin", color: { rgb: "B4C6E7" } },
+      left: { style: "thin", color: { rgb: "B4C6E7" } },
+      right: { style: "thin", color: { rgb: "B4C6E7" } }
+    };
+
+    // 4. Apply Cell Styling, Formats & Alignments
+    const decodeRange = (ref) => {
+      if (typeof XLSX !== "undefined" && XLSX.utils && typeof XLSX.utils.decode_range === "function") {
+        return XLSX.utils.decode_range(ref);
+      }
+      return { s: { c: 0, r: 0 }, e: { c: 10, r: rows.length - 1 } };
+    };
+
+    const encodeCell = (coord) => {
+      if (typeof XLSX !== "undefined" && XLSX.utils && typeof XLSX.utils.encode_cell === "function") {
+        return XLSX.utils.encode_cell(coord);
+      }
+      const colLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      return (colLetters[coord.c] || "A") + (coord.r + 1);
+    };
+
+    const range = decodeRange(ws["!ref"] || "A1:K4");
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellRef = encodeCell({ r: R, c: C });
+        let cell = ws[cellRef];
+        if (!cell) {
+          if (R === 0 || R === 1 || R === 3 || R >= 4) {
+            cell = { t: "s", v: "" };
+            ws[cellRef] = cell;
+          } else {
+            continue;
+          }
+        }
+
+        cell.s = cell.s || {};
+
+        // Row 1 (idx 0): Summary Section Labels
+        if (R === 0) {
+          if (C <= 2) {
+            cell.s = {
+              font: fontSummary,
+              fill: fillSummary,
+              alignment: { horizontal: "center", vertical: "center" },
+              border: borderSummary
+            };
+          }
+        }
+
+        // Row 2 (idx 1): Summary Section Numeric Values
+        else if (R === 1) {
+          if (C <= 2) {
+            cell.t = "n";
+            cell.z = "#,##0";
+            cell.s = {
+              font: fontSummary,
+              fill: fillSummary,
+              alignment: { horizontal: "center", vertical: "center" },
+              border: borderSummary
+            };
+          }
+        }
+
+        // Row 3 (idx 2): Clean Separator Row
+        else if (R === 2) {
+          // Keep empty without heavy borders
+        }
+
+        // Row 4 (idx 3): Table Header Row
+        else if (R === 3) {
+          const isNumHeader = (C === 4 || C === 6 || C === 7 || C === 8 || C === 9);
+          const isCenterHeader = (C === 0 || C === 1 || C === 5);
+          cell.s = {
+            font: fontHeader,
+            fill: fillHeader,
+            alignment: {
+              horizontal: isNumHeader ? "right" : (isCenterHeader ? "center" : "left"),
+              vertical: "center",
+              wrapText: true
+            },
+            border: borderHeader
+          };
+        }
+
+        // Row 5+ (idx 4+): Main Table Data Rows
+        else if (R >= 4) {
+          cell.s.font = { ...fontBase };
+          cell.s.border = borderThinGrey;
+
+          // Alignments & Number Formats per Column
+          switch (C) {
+            case 0: // ID
+              cell.s.alignment = { horizontal: "center", vertical: "center" };
+              if (cell.v !== "") { cell.t = "n"; cell.z = "0"; }
+              break;
+
+            case 1: // Date
+              cell.s.alignment = { horizontal: "center", vertical: "center" };
+              cell.z = "dd-mmm-yy";
+              break;
+
+            case 2: // Supplier
+              cell.s.alignment = { horizontal: "left", vertical: "center" };
+              break;
+
+            case 3: // Material
+              cell.s.alignment = { horizontal: "left", vertical: "center" };
+              break;
+
+            case 4: // Qty
+              cell.s.alignment = { horizontal: "right", vertical: "center" };
+              if (typeof cell.v === "number") {
+                cell.t = "n";
+                cell.z = (cell.v % 1 !== 0) ? "#,##0.00" : "#,##0";
+              }
+              break;
+
+            case 5: // Unit
+              cell.s.alignment = { horizontal: "center", vertical: "center" };
+              break;
+
+            case 6: // Rate
+              cell.s.alignment = { horizontal: "right", vertical: "center" };
+              if (typeof cell.v === "number") {
+                cell.t = "n";
+                cell.z = (cell.v % 1 !== 0) ? "#,##0.00" : "#,##0";
+              }
+              break;
+
+            case 7: // Total
+              cell.s.alignment = { horizontal: "right", vertical: "center" };
+              if (typeof cell.v === "number") {
+                cell.t = "n";
+                cell.z = "#,##0";
+              }
+              break;
+
+            case 8: // Paid
+              cell.s.alignment = { horizontal: "right", vertical: "center" };
+              if (typeof cell.v === "number") {
+                cell.t = "n";
+                cell.z = "#,##0";
+              }
+              break;
+
+            case 9: // Pending
+              cell.s.alignment = { horizontal: "right", vertical: "center" };
+              if (typeof cell.v === "number") {
+                cell.t = "n";
+                cell.z = "#,##0";
+                if (cell.v > 0) {
+                  cell.s.font = fontPendingRed; // Highlight pending balance text in red
+                }
+              }
+              break;
+
+            case 10: // Notes
+              cell.s.alignment = { horizontal: "left", vertical: "center", wrapText: true };
+              break;
+          }
+        }
+      }
+    }
+
+    // 5. Freeze Panes: Freeze above data rows (ySplit = 4)
+    ws["!freeze"] = { xSplit: 0, ySplit: 4 };
+    ws["!views"] = [{ state: "frozen", ySplit: 4, xSplit: 0 }];
+
+    // 6. AutoFilter: Enable on the Table Header Row (Row 4, index 3)
+    const lastRowIndex = Math.max(rows.length, 4);
+    ws["!autofilter"] = {
+      ref: `A4:K${lastRowIndex}`
+    };
+
+    // 7. Column Widths (Exact specifications)
+    ws["!cols"] = [
+      { wch: 6 },  // ID: ~6
+      { wch: 11 }, // Date: ~11
+      { wch: 16 }, // Supplier: ~16
+      { wch: 16 }, // Material: ~16
+      { wch: 8 },  // Qty: ~8
+      { wch: 6 },  // Unit: ~6
+      { wch: 10 }, // Rate: ~10
+      { wch: 12 }, // Total: ~12
+      { wch: 12 }, // Paid: ~12
+      { wch: 12 }, // Pending: ~12
+      { wch: 26 }  // Notes: ~26 (wrapText: true)
+    ];
+
+    // 8. Row Heights (Summary/Header ~20-22pt, Separator 10pt, Data 15pt default)
+    const rowHeights = [
+      { hpt: 20 }, // Row 1: Summary Labels
+      { hpt: 20 }, // Row 2: Summary Numeric Values
+      { hpt: 10 }, // Row 3: Separator Row
+      { hpt: 22 }  // Row 4: Table Headers
+    ];
+    for (let r = 4; r < rows.length; r++) {
+      rowHeights.push({ hpt: 15 }); // Standard rows: 15pt
+    }
+    ws["!rows"] = rowHeights;
+
+    // 9. Page Setup & Printing: Landscape, fitToWidth: 1, fitToHeight: 0
+    ws["!pageSetup"] = {
+      orientation: "landscape",
+      fitToWidth: 1,
+      fitToHeight: 0,
+      paperSize: 9
+    };
+    ws["!sheetPr"] = {
+      pageSetUpPr: {
+        fitToPage: true
+      }
+    };
+    ws["!sheetFormat"] = {
+      defaultRowHeight: 15
+    };
 
     return ws;
   },
 
   /**
-   * Build Worksheet 2: Payment History
-   * Columns: Payment ID, Material Record ID, Person Name, Material Type,
-   * Payment Amount, Payment Date, Payment Method, Notes
+   * Helper: Payments Worksheet generator (retained for backward compatibility)
    */
-  buildPaymentsWorksheet(payments, materialIdMap = {}) {
+  buildPaymentsWorksheet(payments = [], materialIdMap = {}) {
     const headers = [
       "Payment ID",
       "Material Record ID",
@@ -234,7 +503,6 @@ const ExportService = {
     if (!payments || payments.length === 0) {
       rows.push(["No payment transactions recorded yet.", "", "", "", "", "", "", ""]);
     } else {
-      // Sort payments chronologically (earliest first)
       const sortedPayments = [...payments].sort((a, b) => {
         const timeA = a.payment_date || a.created_at || "";
         const timeB = b.payment_date || b.created_at || "";
@@ -242,7 +510,6 @@ const ExportService = {
       });
 
       sortedPayments.forEach((p, idx) => {
-        // Sequential clean payment number (1, 2, 3...)
         const paymentId = idx + 1;
         const materialRecordId = (p.material_record_id && materialIdMap[p.material_record_id])
           ? materialIdMap[p.material_record_id]
@@ -268,20 +535,18 @@ const ExportService = {
     }
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-
-    // Freeze header row
+    ws._rows = rows;
     ws["!freeze"] = { xSplit: 0, ySplit: 1 };
     ws["!views"] = [{ state: "frozen", ySplit: 1 }];
-
-    // Auto-compute column widths
-    ws["!cols"] = this.computeAutoColumnWidths(rows, [12, 18, 20, 18, 20, 14, 16, 35]);
-
+    ws["!cols"] = [
+      { wch: 12 }, { wch: 18 }, { wch: 20 }, { wch: 18 },
+      { wch: 20 }, { wch: 14 }, { wch: 16 }, { wch: 35 }
+    ];
     return ws;
   },
 
   /**
-   * Build Worksheet 3: Summary
-   * Structured key financial indicators for the construction project
+   * Helper: Summary Worksheet generator (retained for backward compatibility)
    */
   buildSummaryWorksheet(metrics) {
     const now = new Date();
@@ -311,21 +576,19 @@ const ExportService = {
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-
-    // Column widths for summary
+    ws._rows = rows;
     ws["!cols"] = [
       { wch: 30 },
       { wch: 25 },
       { wch: 55 }
     ];
-
     return ws;
   },
 
   /**
    * Compute Summary Financial Metrics adhering strictly to project calculation rules
    */
-  computeSummaryMetrics(materials, payments) {
+  computeSummaryMetrics(materials, payments = []) {
     let totalDue = 0;
     let totalPaid = 0;
     let totalPending = 0;
@@ -360,33 +623,6 @@ const ExportService = {
       totalPending: totalPending,
       unsetDueCount: unsetDueCount
     };
-  },
-
-  /**
-   * Helper: Dynamically compute appropriate column widths from cell content
-   */
-  computeAutoColumnWidths(rows, minWidths = []) {
-    if (!rows || rows.length === 0) return [];
-
-    const colCount = rows[0].length;
-    const widths = [];
-
-    for (let c = 0; c < colCount; c++) {
-      let maxLen = minWidths[c] || 12;
-      for (let r = 0; r < rows.length; r++) {
-        const cell = rows[r][c];
-        if (cell !== undefined && cell !== null) {
-          const strLen = String(cell).length;
-          if (strLen > maxLen) {
-            maxLen = strLen;
-          }
-        }
-      }
-      // Add padding and cap at max 50 to avoid overly wide columns
-      widths.push({ wch: Math.min(Math.max(maxLen + 3, 12), 50) });
-    }
-
-    return widths;
   },
 
   /**

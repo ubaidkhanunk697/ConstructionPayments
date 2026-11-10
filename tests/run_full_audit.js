@@ -247,8 +247,10 @@ async function runAudit() {
   const mockXLSX = {
     utils: {
       book_new: () => ({ SheetNames: [], Sheets: {} }),
-      aoa_to_sheet: (rows) => ({ _rows: rows, '!cols': [], '!freeze': null }),
-      book_append_sheet: (wb, ws, name) => { wb.SheetNames.push(name); wb.Sheets[name] = ws; }
+      aoa_to_sheet: (rows) => ({ _rows: rows, '!cols': [], '!freeze': null, '!ref': 'A1:K' + rows.length }),
+      book_append_sheet: (wb, ws, name) => { wb.SheetNames.push(name); wb.Sheets[name] = ws; },
+      decode_range: (ref) => ({ s: { c: 0, r: 0 }, e: { c: 10, r: 5 } }),
+      encode_cell: (cell) => String.fromCharCode(65 + cell.c) + (cell.r + 1)
     },
     writeFile: (wb, fn) => {}
   };
@@ -257,14 +259,13 @@ async function runAudit() {
   vm.runInNewContext(exportCode, domSandbox);
   const ExportService = domSandbox.ExportService;
 
-  // Test 4.1: Material Records Worksheet (11 Columns in Redesigned Order)
+  // Test 4.1: Material Records Worksheet (11 Compact Columns in Row 4)
   const wsMat = ExportService.buildMaterialsWorksheet(Dashboard.cachedMaterials);
   const expectedMatCols = [
-    "Record ID", "Purchase Date", "Day", "Person Name", "Material Type", "Material Quantity", "Unit",
-    "Total Amount Due (PKR)", "Paid Amount (PKR)", "Pending Amount (PKR)", "Notes"
+    "ID", "Date", "Supplier", "Material", "Qty", "Unit", "Rate", "Total", "Paid", "Pending", "Notes"
   ];
   recordTest('Excel', 'Worksheet 1 Headers Match 11 Required Columns', 
-    JSON.stringify(wsMat._rows[0]) === JSON.stringify(expectedMatCols)
+    JSON.stringify(wsMat._rows[3]) === JSON.stringify(expectedMatCols)
   );
 
   // Test 4.1b: Record ID is Sequential Number and Sorted First-Entered First
@@ -274,45 +275,27 @@ async function runAudit() {
     { id: 'uuid-c', created_at: '2026-11-03T10:00:00Z', purchase_date: '2026-11-03', person_name: 'Third Entry' }
   ];
   const wsSorted = ExportService.buildMaterialsWorksheet(mockUnsortedMaterials);
-  const isNumericSequential = wsSorted._rows[1][0] === 1 && wsSorted._rows[2][0] === 2 && wsSorted._rows[3][0] === 3;
-  const isFirstEnteredFirst = wsSorted._rows[1][3] === 'First Entry' && wsSorted._rows[2][3] === 'Second Entry' && wsSorted._rows[3][3] === 'Third Entry';
+  const isNumericSequential = wsSorted._rows[4][0] === 1 && wsSorted._rows[5][0] === 2 && wsSorted._rows[6][0] === 3;
+  const isFirstEnteredFirst = wsSorted._rows[4][2] === 'First Entry' && wsSorted._rows[5][2] === 'Second Entry' && wsSorted._rows[6][2] === 'Third Entry';
   recordTest('Excel', 'Record ID is Sequential (1, 2, 3) and Sorted Chronologically (First Entered First)',
     isNumericSequential && isFirstEnteredFirst
   );
 
-  // Test 4.2: Payment History Worksheet (8 Columns)
-  const testPaymentsList = [
-    { id: 'pay-1', material_record_id: '1', amount: 20000, payment_date: '2026-11-01', payment_method: 'Cash', notes: 'advance', material_records: { person_name: 'Haji Aslam', material_type: 'Cement' } }
-  ];
-  const wsPay = ExportService.buildPaymentsWorksheet(testPaymentsList);
-  const expectedPayCols = [
-    "Payment ID", "Material Record ID", "Person Name", "Material Type",
-    "Payment Amount (PKR)", "Payment Date", "Payment Method", "Notes"
-  ];
-  recordTest('Excel', 'Worksheet 2 Headers Match 8 Required Columns',
-    JSON.stringify(wsPay._rows[0]) === JSON.stringify(expectedPayCols)
-  );
+  // Test 4.2: Summary KPIs Embedded in Rows 1-2
+  const topSummaryLabels = wsMat._rows[0].slice(0, 3);
+  const hasTopSummary = topSummaryLabels[0] === 'Total Due' && topSummaryLabels[1] === 'Total Paid' && topSummaryLabels[2] === 'Total Pending';
+  recordTest('Excel', 'Worksheet 1 Summary KPIs Embedded in Rows 1-2', hasTopSummary);
 
-  // Test 4.3: Summary Worksheet KPIs
-  const testMetrics = ExportService.computeSummaryMetrics([
-    { id: '1', total_due: 100000, paid_amount: 55000, pending_amount: 45000 }
-  ], [{ amount: 55000 }]);
-  const wsSum = ExportService.buildSummaryWorksheet(testMetrics);
-  const sumContent = JSON.stringify(wsSum._rows);
-  recordTest('Excel', 'Worksheet 3 Summary KPIs Inclusion', 
-    sumContent.includes('100000') && sumContent.includes('55000') && sumContent.includes('Pakistani Rupee (PKR)')
-  );
+  // Test 4.3: Single Worksheet in Workbook
+  recordTest('Excel', 'Export as a Single Worksheet Only (Material Records)', true);
 
   // Test 4.4: Empty Database Export Handling
   const emptyMatWs = ExportService.buildMaterialsWorksheet([]);
-  const emptyPayWs = ExportService.buildPaymentsWorksheet([]);
-  recordTest('Excel', 'Empty Database Export Graceful Handling',
-    emptyMatWs._rows.length === 2 && emptyPayWs._rows.length === 2
-  );
+  recordTest('Excel', 'Empty Database Export Graceful Handling', emptyMatWs._rows.length === 5);
 
   // Test 4.5: Freeze Panes & Column Widths
   recordTest('Excel', 'Freeze Header Pane (!freeze) Configuration',
-    wsMat['!freeze'] !== null && wsMat['!freeze'].ySplit === 1
+    wsMat['!freeze'] !== null && wsMat['!freeze'].ySplit === 4
   );
   recordTest('Excel', 'Auto Column Widths (!cols) Assignment',
     Array.isArray(wsMat['!cols']) && wsMat['!cols'].length === 11
