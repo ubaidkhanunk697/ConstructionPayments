@@ -10,29 +10,38 @@ const ExportService = {
   /**
    * Generate Complete Excel Workbook and Binary Blob
    * Reused across Local Download and Google Drive Export
+   * Synchronized with active on-screen filtered records
    */
-  async generateExcelBlob() {
+  async generateExcelBlob(recordsOverride = null) {
     if (typeof XLSX === "undefined") {
       throw new Error("SheetJS library is not loaded. Please verify your internet connection.");
     }
 
-    // 1. Fetch ALL records directly from Supabase (not just filtered/visible ones)
+    // 1. Synchronized Dataset Selection:
+    // Strictly export the currently filtered dataset matching on-screen rows
     let materials = [];
     let payments = [];
 
-    if (typeof CONFIG !== "undefined" && CONFIG.isConfigured() && typeof DB !== "undefined") {
+    if (recordsOverride && Array.isArray(recordsOverride)) {
+      materials = recordsOverride;
+    } else if (typeof Dashboard !== "undefined" && Array.isArray(Dashboard.filteredMaterials)) {
+      materials = Dashboard.filteredMaterials;
+    } else if (typeof Dashboard !== "undefined" && Array.isArray(Dashboard.cachedMaterials)) {
+      materials = Dashboard.cachedMaterials;
+    } else if (typeof CONFIG !== "undefined" && CONFIG.isConfigured() && typeof DB !== "undefined") {
       const [materialsData, paymentsData] = await Promise.all([
         DB.fetchMaterialRecords(),
         DB.fetchAllPaymentsForExport()
       ]);
       materials = materialsData || [];
       payments = paymentsData || [];
-    } else if (typeof Dashboard !== "undefined") {
-      materials = Dashboard.cachedMaterials || [];
-      payments = Dashboard.cachedPayments || [];
     }
 
-    // 2. Compute accurate financial aggregates across ALL fetched materials
+    if (payments.length === 0 && typeof Dashboard !== "undefined" && Array.isArray(Dashboard.cachedPayments)) {
+      payments = Dashboard.cachedPayments;
+    }
+
+    // 2. Compute accurate financial aggregates for the exported active subset
     const summaryMetrics = this.computeSummaryMetrics(materials, payments);
 
     // 3. Build Single Worksheet: "Material Records"
@@ -64,7 +73,7 @@ const ExportService = {
   /**
    * Main Export Controller (Local File Download)
    */
-  async exportToExcel() {
+  async exportToExcel(recordsOverride = null) {
     if (this.isExporting) return; // Prevent concurrent export triggers
 
     this.setLoadingState(true);
@@ -72,7 +81,8 @@ const ExportService = {
     try {
       UI.showToast("Generating Excel spreadsheet...", "info", "Exporting Excel");
 
-      const { wb, filename, materialsCount } = await this.generateExcelBlob();
+      const targetRecords = recordsOverride || (typeof Dashboard !== "undefined" ? Dashboard.filteredMaterials : null);
+      const { wb, filename, materialsCount } = await this.generateExcelBlob(targetRecords);
 
       // Trigger download via SheetJS
       XLSX.writeFile(wb, filename);

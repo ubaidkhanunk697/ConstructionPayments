@@ -512,25 +512,25 @@ const Dashboard = {
   },
 
   /**
-   * Setup Search, Date Filter, Material Filter, and Sort Controls
+   * Setup Search, Payment Status Filter, Material Filter, and Sort Controls
    */
   setupFiltersAndSorting() {
     const searchInput = document.getElementById("filter-search-input");
     const typeSelect = document.getElementById("filter-material-type");
-    const dateInput = document.getElementById("filter-date");
+    const statusSelect = document.getElementById("statusFilter") || document.getElementById("filter-status");
     const sortSelect = document.getElementById("filter-sort");
     const resetBtn = document.getElementById("btn-reset-filters");
 
     if (searchInput) searchInput.addEventListener("input", () => this.applyFiltersAndSort());
     if (typeSelect) typeSelect.addEventListener("change", () => this.applyFiltersAndSort());
-    if (dateInput) dateInput.addEventListener("change", () => this.applyFiltersAndSort());
+    if (statusSelect) statusSelect.addEventListener("change", () => this.applyFiltersAndSort());
     if (sortSelect) sortSelect.addEventListener("change", () => this.applyFiltersAndSort());
 
     if (resetBtn) {
       resetBtn.addEventListener("click", () => {
         if (searchInput) searchInput.value = "";
         if (typeSelect) typeSelect.value = "";
-        if (dateInput) dateInput.value = "";
+        if (statusSelect) statusSelect.value = "all";
         if (sortSelect) sortSelect.value = "newest";
         this.applyFiltersAndSort();
       });
@@ -545,7 +545,11 @@ const Dashboard = {
 
     const query = (document.getElementById("filter-search-input")?.value || "").toLowerCase().trim();
     const selectedType = document.getElementById("filter-material-type")?.value || "";
-    const selectedDate = document.getElementById("filter-date")?.value || "";
+    const selectedStatus = (
+      document.getElementById("statusFilter")?.value ||
+      document.getElementById("filter-status")?.value ||
+      "all"
+    ).toLowerCase();
     const sortOrder = document.getElementById("filter-sort")?.value || "newest";
 
     let filtered = this.cachedMaterials.filter((m) => {
@@ -564,9 +568,23 @@ const Dashboard = {
         return false;
       }
 
-      // 3. Purchase Date Filter
-      if (selectedDate && m.purchase_date !== selectedDate) {
-        return false;
+      // 3. Payment Status Filter ("all", "paid", "pending")
+      const due = m.total_due !== null && m.total_due !== undefined ? Number(m.total_due) : null;
+      const paid = Number(m.paid_amount) || 0;
+      const pending = m.pending_amount !== null && m.pending_amount !== undefined
+        ? Number(m.pending_amount)
+        : (due !== null ? Math.max(0, due - paid) : 0);
+
+      if (selectedStatus === "paid") {
+        // Paid: pending balance is 0 or paid equals/exceeds total due
+        const isPaid = (m.pending_amount !== null && Number(m.pending_amount) <= 0 && due !== null) ||
+                       (due !== null && paid >= due);
+        if (!isPaid) return false;
+      } else if (selectedStatus === "pending") {
+        // Pending / Partial: pending balance is greater than 0
+        const isPending = (m.pending_amount !== null && Number(m.pending_amount) > 0) ||
+                          (due !== null && due > paid);
+        if (!isPending) return false;
       }
 
       return true;
@@ -581,6 +599,9 @@ const Dashboard = {
       }
       return dateB - dateA; // newest first
     });
+
+    // Cache the active filtered dataset so exports and actions reflect on-screen rows
+    this.filteredMaterials = filtered;
 
     // Update filter counter badge
     const countBadge = document.getElementById("filtered-records-count");

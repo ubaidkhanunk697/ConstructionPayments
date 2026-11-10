@@ -173,9 +173,9 @@ async function runAudit() {
 
   // Test 2.5: Search, Filter, and Sort Engine
   Dashboard.cachedMaterials = [
-    { id: '1', person_name: 'Haji Aslam', material_type: 'Cement', notes: 'Invoice 101', purchase_date: '2026-11-01' },
-    { id: '2', person_name: 'Tariq Steel', material_type: 'Steel / Sariya', notes: 'Grade 60', purchase_date: '2026-11-03' },
-    { id: '3', person_name: 'Rashid Sand', material_type: 'Sand / Rait', notes: 'Ravi sand', purchase_date: '2026-11-02' }
+    { id: '1', person_name: 'Haji Aslam', material_type: 'Cement', notes: 'Invoice 101', purchase_date: '2026-11-01', total_due: 100000, paid_amount: 100000, pending_amount: 0 },
+    { id: '2', person_name: 'Tariq Steel', material_type: 'Steel / Sariya', notes: 'Grade 60', purchase_date: '2026-11-03', total_due: 250000, paid_amount: 150000, pending_amount: 100000 },
+    { id: '3', person_name: 'Rashid Sand', material_type: 'Sand / Rait', notes: 'Ravi sand', purchase_date: '2026-11-02', total_due: 50000, paid_amount: 0, pending_amount: 50000 }
   ];
 
   // Search filter test
@@ -189,6 +189,11 @@ async function runAudit() {
   const typeFilter = 'Cement';
   const typeResults = Dashboard.cachedMaterials.filter(m => m.material_type === typeFilter);
   recordTest('Materials', 'Material Type Filtering', typeResults.length === 1 && typeResults[0].person_name === 'Haji Aslam');
+
+  // Payment Status filter test (Paid vs Pending/Partial)
+  const paidResults = Dashboard.cachedMaterials.filter(m => (m.pending_amount !== null && m.pending_amount <= 0));
+  const pendingResults = Dashboard.cachedMaterials.filter(m => (m.pending_amount !== null && m.pending_amount > 0));
+  recordTest('Materials', 'Payment Status Filtering (Paid vs Pending)', paidResults.length === 1 && pendingResults.length === 2);
 
   // Sort newest vs oldest
   const sortedNewest = [...Dashboard.cachedMaterials].sort((a, b) => new Date(b.purchase_date) - new Date(a.purchase_date));
@@ -299,6 +304,12 @@ async function runAudit() {
   );
   recordTest('Excel', 'Auto Column Widths (!cols) Assignment',
     Array.isArray(wsMat['!cols']) && wsMat['!cols'].length === 11
+  );
+
+  // Test 4.6: Export Synchronized with Active Filtered Dataset
+  const subsetExport = ExportService.buildMaterialsWorksheet(pendingResults);
+  recordTest('Excel', 'Export Synchronized with Active Filtered Dataset',
+    subsetExport._rows.length === 6 && subsetExport._rows[4][2] === 'Rashid Sand' && subsetExport._rows[5][2] === 'Tariq Steel'
   );
 
   // ============================================================================

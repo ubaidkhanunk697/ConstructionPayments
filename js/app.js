@@ -159,11 +159,12 @@ function setupActionButtons() {
   if (addBtnHeader) addBtnHeader.addEventListener("click", openAddModal);
   if (addBtnEmpty) addBtnEmpty.addEventListener("click", openAddModal);
 
-  // Wire Download Excel actions to ExportService
+  // Wire Download Excel actions to ExportService (synchronized with active on-screen filtered records)
   const handleExportClick = async (e) => {
     if (e) e.preventDefault();
     if (typeof ExportService !== "undefined") {
-      await ExportService.exportToExcel();
+      const filteredRecords = typeof Dashboard !== "undefined" ? Dashboard.filteredMaterials : null;
+      await ExportService.exportToExcel(filteredRecords);
     } else {
       UI.showToast("Export engine is loading, please try again in a moment.", "warning", "Exporting");
     }

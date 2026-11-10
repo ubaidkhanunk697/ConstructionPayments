@@ -55,7 +55,7 @@ function auditProduction() {
   console.log("\n--- 3. Search & Filter Controls ---");
   check("Filters", "Live search input element", dashHtml.includes('id="filter-search-input"'));
   check("Filters", "Material type dropdown filter", dashHtml.includes('id="filter-material-type"'));
-  check("Filters", "Purchase date filter picker", dashHtml.includes('id="filter-date"'));
+  check("Filters", "Payment status dropdown filter", dashHtml.includes('id="statusFilter"'));
   check("Filters", "Sorting dropdown filter", dashHtml.includes('id="filter-sort"'));
   check("Filters", "Reset all filters button", dashHtml.includes('id="btn-reset-filters"'));
 

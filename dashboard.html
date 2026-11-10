@@ -433,19 +433,22 @@
                   </select>
                 </div>
 
-                <!-- Date Filter -->
+                <!-- Payment Status Filter -->
                 <div style="min-width: 140px">
-                  <input
-                    type="date"
-                    id="filter-date"
-                    class="form-input"
-                    title="Filter by purchase date"
+                  <select
+                    id="statusFilter"
+                    class="form-select"
+                    title="Filter by payment status"
                     style="
                       padding-top: 0.45rem;
                       padding-bottom: 0.45rem;
                       font-size: var(--font-size-xs);
                     "
-                  />
+                  >
+                    <option value="all" selected>All List</option>
+                    <option value="paid">Paid</option>
+                    <option value="pending">Pending / Partial</option>
+                  </select>
                 </div>
 
                 <!-- Sort Order Dropdown (Newest vs Oldest) -->

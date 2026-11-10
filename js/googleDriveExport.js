@@ -166,8 +166,9 @@ const GoogleDriveExport = {
       this.setLoadingState(true, "Generating Report...");
       UI.showToast("Generating Excel spreadsheet from project data...", "info", "Preparing Report");
 
-      // Step 2: Generate identical Excel workbook blob
-      const { blob, filename, materialsCount } = await ExportService.generateExcelBlob();
+      // Step 2: Generate identical Excel workbook blob from active filtered records
+      const filteredRecords = typeof Dashboard !== "undefined" ? Dashboard.filteredMaterials : null;
+      const { blob, filename, materialsCount } = await ExportService.generateExcelBlob(filteredRecords);
 
       this.setLoadingState(true, "Uploading to Drive...");
       UI.showToast("Uploading Excel workbook directly to your Google Drive...", "info", "Uploading");
