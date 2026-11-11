@@ -399,8 +399,8 @@ function setupMaterialFormHandlers() {
 
         const supabase = (typeof DB !== "undefined" && typeof DB.getClient === "function")
           ? DB.getClient()
-          : (typeof window.supabase !== "undefined" ? window.supabase : null);
-        const user = Auth.currentUser;
+          : (typeof window.supabaseClient !== "undefined" ? window.supabaseClient : (typeof window.supabase !== "undefined" ? window.supabase : null));
+        const user = Auth.currentUser || (Auth.client?.auth ? (await Auth.client.auth.getUser())?.data?.user : null);
 
         if (supabase && user && user.id) {
           UI.showToast("Uploading receipt to cloud storage...", "info", "Uploading");
