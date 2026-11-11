@@ -946,6 +946,68 @@
                 (optional)</span
               >
             </div>
+
+            <!-- Field 10: Receipt Photo Upload (Optional) -->
+            <div class="form-group" style="margin-top: var(--space-3);">
+              <label for="receiptFileInput" class="form-label" style="display: flex; align-items: center; justify-content: space-between;">
+                <span>Receipt / Invoice Photo <span style="font-weight: normal; color: var(--color-text-dim); text-transform: none;">(Optional)</span></span>
+              </label>
+
+              <div class="receipt-upload-box" style="display: flex; flex-direction: column; gap: var(--space-2);">
+                <!-- Hidden file input matching exact requested ID, accept, and capture -->
+                <input
+                  type="file"
+                  id="receiptFileInput"
+                  accept="image/*"
+                  capture="environment"
+                  style="display: none;"
+                />
+
+                <div id="receipt-upload-trigger-container" style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+                  <button
+                    type="button"
+                    id="btn-choose-receipt"
+                    class="btn btn-secondary btn-sm"
+                    style="display: inline-flex; align-items: center; gap: var(--space-2);"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                    <span>Upload Receipt / Photo</span>
+                  </button>
+                  <span id="receipt-upload-hint" style="font-size: var(--font-size-xs); color: var(--color-text-dim);">
+                    Optional: Attach 1 bill or receipt photo (auto-compressed)
+                  </span>
+                </div>
+
+                <!-- Preview container -->
+                <div
+                  id="receipt-preview-container"
+                  class="receipt-preview-container"
+                  style="display: none; align-items: center; gap: var(--space-3); padding: var(--space-2); background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: var(--radius-md); width: fit-content; max-width: 100%; margin-top: 4px;"
+                >
+                  <div style="position: relative; width: 68px; height: 68px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--color-border); background: #1e293b; flex-shrink: 0;">
+                    <img
+                      id="receipt-preview-img"
+                      src=""
+                      alt="Selected Receipt"
+                      style="width: 100%; height: 100%; object-fit: cover; display: block;"
+                    />
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+                    <span id="receipt-file-name" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); color: var(--color-text-main); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Receipt Selected</span>
+                    <span id="receipt-file-size" style="font-size: 11px; color: var(--color-text-dim);">Ready for compression</span>
+                    <button
+                      type="button"
+                      id="btn-remove-receipt"
+                      class="btn btn-ghost btn-sm"
+                      style="color: var(--color-pending); font-size: 11px; padding: 2px 6px; width: fit-content; margin-top: 2px; display: inline-flex; align-items: center; gap: 4px;"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                      Delete / Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="modal-footer" style="display: flex; align-items: center; justify-content: space-between;">
@@ -1880,20 +1942,87 @@
       </div>
     </div>
 
+    <!-- G. Modal: RECEIPT VIEWER -->
+    <div
+      id="modal-receipt-view"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="receipt-view-title"
+    >
+      <div class="modal-container modal-container-lg" style="max-width: 720px;">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <div class="modal-title-icon icon-primary">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+            </div>
+            <div>
+              <h2 class="modal-title" id="receipt-view-title">
+                Procurement Receipt / Invoice
+              </h2>
+              <p class="modal-subtitle" id="receipt-view-subtitle">
+                High-resolution verification
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="modal-close-btn"
+            data-close-modal="modal-receipt-view"
+            aria-label="Close dialog"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <div class="modal-body" style="padding: var(--space-4); display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; overflow: auto; min-height: 250px;">
+          <div style="position: relative; max-width: 100%; max-height: 70vh; display: flex; align-items: center; justify-content: center;">
+            <img
+              id="receipt-view-image"
+              src=""
+              alt="Receipt Invoice"
+              style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: var(--radius-md); box-shadow: var(--shadow-md); display: block;"
+            />
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+          <a
+            id="receipt-view-download-link"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-secondary btn-sm"
+            style="display: inline-flex; align-items: center; gap: 6px;"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <span>Open Full Size</span>
+          </a>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-close-modal="modal-receipt-view"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ====================================================================
        8. TOAST NOTIFICATION CONTAINER
        ==================================================================== -->
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="js/config.js?v=2.7"></script>
-    <script src="js/supabaseClient.js?v=2.7"></script>
-    <script src="js/auth.js?v=2.7"></script>
-    <script src="js/db.js?v=2.7"></script>
-    <script src="js/dashboard.js?v=2.7"></script>
-    <script src="js/ui.js?v=2.7"></script>
-    <script src="js/export.js?v=2.7"></script>
-    <script src="js/googleDriveExport.js?v=2.7"></script>
-    <script src="js/app.js?v=2.7"></script>
+    <script src="js/config.js?v=2.8"></script>
+    <script src="js/supabaseClient.js?v=2.8"></script>
+    <script src="js/auth.js?v=2.8"></script>
+    <script src="js/db.js?v=2.8"></script>
+    <script src="js/dashboard.js?v=2.8"></script>
+    <script src="js/ui.js?v=2.8"></script>
+    <script src="js/export.js?v=2.8"></script>
+    <script src="js/googleDriveExport.js?v=2.8"></script>
+    <script src="js/app.js?v=2.8"></script>
   </body>
 </html>

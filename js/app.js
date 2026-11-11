@@ -23,6 +23,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Bind Header & Dashboard Action Buttons
   setupActionButtons();
 
+  // Bind Receipt Upload & Canvas Compression Handlers
+  setupReceiptUploadHandlers();
+
   // Bind Form Submission & Strong Confirmation Flows
   setupMaterialFormHandlers();
 
@@ -114,7 +117,9 @@ function setupActionButtons() {
     if (form) {
       form.reset();
       form.removeAttribute("data-edit-id");
+      form.removeAttribute("data-existing-receipt-url");
     }
+    resetReceiptUpload();
     
     const dateInput = document.getElementById("material-date");
     const dayInput = document.getElementById("material-day");
@@ -188,6 +193,146 @@ function setupActionButtons() {
   if (exportGDriveBtnToolbar) exportGDriveBtnToolbar.addEventListener("click", handleGDriveExportClick);
 }
 
+// Active receipt photo pending upload
+let pendingReceiptFile = null;
+
+/**
+ * Client-Side HTML5 Canvas Image Compression
+ * - Max dimension: 1280px (preserves aspect ratio)
+ * - Quality: JPEG 0.75 (~150KB - 250KB)
+ * - Handwritten text & invoice details remain crisp and legible
+ */
+function compressReceiptImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) {
+      return reject(new Error("Selected file must be an image."));
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read image file."));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Failed to load image in memory."));
+      img.onload = () => {
+        const MAX_DIM = 1280;
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
+
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          } else {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+
+        // White background for transparent PNG to JPEG conversion
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error("Canvas compression failed."));
+            }
+          },
+          "image/jpeg",
+          0.75
+        );
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Reset receipt selection and thumbnail preview
+ */
+function resetReceiptUpload() {
+  pendingReceiptFile = null;
+  const fileInput = document.getElementById("receiptFileInput");
+  const previewContainer = document.getElementById("receipt-preview-container");
+  const previewImg = document.getElementById("receipt-preview-img");
+  const fileNameEl = document.getElementById("receipt-file-name");
+  const fileSizeEl = document.getElementById("receipt-file-size");
+
+  if (fileInput) fileInput.value = "";
+  if (previewImg) previewImg.src = "";
+  if (fileNameEl) fileNameEl.textContent = "";
+  if (fileSizeEl) fileSizeEl.textContent = "";
+  if (previewContainer) previewContainer.style.display = "none";
+}
+
+/**
+ * Wire receipt file selection and remove preview controls
+ */
+function setupReceiptUploadHandlers() {
+  const chooseBtn = document.getElementById("btn-choose-receipt");
+  const fileInput = document.getElementById("receiptFileInput");
+  const removeBtn = document.getElementById("btn-remove-receipt");
+  const previewContainer = document.getElementById("receipt-preview-container");
+  const previewImg = document.getElementById("receipt-preview-img");
+  const fileNameEl = document.getElementById("receipt-file-name");
+  const fileSizeEl = document.getElementById("receipt-file-size");
+
+  if (chooseBtn && fileInput) {
+    chooseBtn.addEventListener("click", () => fileInput.click());
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      if (!file.type.startsWith("image/")) {
+        UI.showToast("Please choose an image file (JPEG, PNG, WebP).", "warning", "Invalid File");
+        fileInput.value = "";
+        return;
+      }
+
+      pendingReceiptFile = file;
+
+      if (previewImg) {
+        previewImg.src = URL.createObjectURL(file);
+      }
+      if (fileNameEl) {
+        fileNameEl.textContent = file.name;
+      }
+      if (fileSizeEl) {
+        const originalKb = Math.round(file.size / 1024);
+        fileSizeEl.textContent = `Original: ${originalKb} KB • Compressing to ~150-250 KB`;
+      }
+      if (previewContainer) {
+        previewContainer.style.display = "flex";
+      }
+
+      const form = document.getElementById("material-record-form");
+      if (form) form.removeAttribute("data-existing-receipt-url");
+    });
+  }
+
+  if (removeBtn) {
+    removeBtn.addEventListener("click", () => {
+      resetReceiptUpload();
+      const form = document.getElementById("material-record-form");
+      if (form) form.removeAttribute("data-existing-receipt-url");
+      UI.showToast("Receipt removed.", "info", "Removed");
+    });
+  }
+}
+
 /**
  * Setup Material Form Submission with Validation & Live Database Persistence
  */
@@ -238,6 +383,54 @@ function setupMaterialFormHandlers() {
       return;
     }
 
+    // Close form modal
+    UI.closeModal("modal-material-form");
+
+    // Process Receipt Photo (Compression & Storage)
+    let receiptUrl = null;
+    const existingReceiptUrl = form.getAttribute("data-existing-receipt-url");
+    const previewContainer = document.getElementById("receipt-preview-container");
+    const hasVisiblePreview = previewContainer && previewContainer.style.display !== "none";
+
+    if (pendingReceiptFile) {
+      try {
+        UI.showToast("Compressing receipt photo...", "info", "Compressing");
+        const compressedBlob = await compressReceiptImage(pendingReceiptFile);
+
+        const supabase = (typeof DB !== "undefined" && typeof DB.getClient === "function")
+          ? DB.getClient()
+          : (typeof window.supabase !== "undefined" ? window.supabase : null);
+        const user = Auth.currentUser;
+
+        if (supabase && user && user.id) {
+          UI.showToast("Uploading receipt to cloud storage...", "info", "Uploading");
+          const filePath = `${user.id}/${Date.now()}_receipt.jpg`;
+          const { data: uploadData, error: uploadErr } = await supabase.storage
+            .from("receipts")
+            .upload(filePath, compressedBlob, {
+              contentType: "image/jpeg",
+              upsert: true
+            });
+
+          if (uploadErr) {
+            console.warn("Storage upload notice:", uploadErr);
+            receiptUrl = URL.createObjectURL(compressedBlob);
+            UI.showToast("Receipt saved locally (check 'receipts' bucket in Supabase).", "warning", "Storage Notice");
+          } else {
+            const { data: urlData } = supabase.storage.from("receipts").getPublicUrl(filePath);
+            receiptUrl = urlData?.publicUrl || null;
+          }
+        } else {
+          receiptUrl = URL.createObjectURL(compressedBlob);
+        }
+      } catch (err) {
+        console.error("Receipt compression/upload error:", err);
+        UI.showToast("Could not process receipt photo: " + err.message, "warning", "Photo Notice");
+      }
+    } else if (existingReceiptUrl && hasVisiblePreview) {
+      receiptUrl = existingReceiptUrl;
+    }
+
     const payload = {
       person_name: personName,
       material_type: materialType,
@@ -245,11 +438,9 @@ function setupMaterialFormHandlers() {
       unit: resolvedUnit,
       total_due: totalAmount,
       purchase_date: date,
-      notes: notes
+      notes: notes,
+      receipt_url: receiptUrl
     };
-
-    // Close form modal
-    UI.closeModal("modal-material-form");
 
     if (editId) {
       // Edit Mode: Requires strong confirmation modal before modifying database
@@ -276,6 +467,7 @@ function setupMaterialFormHandlers() {
             }
 
             await DB.updateMaterialRecord(editId, payload);
+            resetReceiptUpload();
 
             // If initial payment was added on edit for a record that had none
             if (paidAmount > 0) {
@@ -325,6 +517,7 @@ function setupMaterialFormHandlers() {
         }
 
         const newRecord = await DB.createMaterialRecord(payload);
+        resetReceiptUpload();
 
         // If an initial payment amount was entered, record payment transaction immediately
         if (paidAmount > 0 && newRecord && newRecord.id) {

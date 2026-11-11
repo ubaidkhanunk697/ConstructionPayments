@@ -355,3 +355,18 @@
   align-items: center;
   gap: var(--space-1);
 }
+
+/* --------------------------------------------------------------------------
+   Receipt Upload & Viewer Modal Styles
+   -------------------------------------------------------------------------- */
+.receipt-upload-box {
+  width: 100%;
+}
+
+.receipt-preview-container {
+  transition: all var(--transition-fast);
+}
+
+#receipt-view-image {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+}

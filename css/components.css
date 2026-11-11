@@ -553,8 +553,8 @@
 }
 
 .col-actions {
-  width: 185px;
-  min-width: 175px;
+  width: 240px;
+  min-width: 220px;
   white-space: nowrap;
   text-align: right;
 }
@@ -564,7 +564,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 5px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .table-actions .btn {

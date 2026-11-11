@@ -205,7 +205,7 @@ const Dashboard = {
             <td class="col-pending text-right text-pending tabular-nums">${pendingText}</td>
             <td class="col-status text-center">${statusBadge}</td>
             <td class="col-actions text-right">
-              <div class="table-actions justify-end">
+              <div class="table-actions justify-end" style="flex-wrap: wrap; gap: 4px;">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="Dashboard.handleOpenAddPayment('${m.id}')" title="Record payment" style="color: var(--color-paid); font-weight: var(--font-weight-medium);">
                   <i data-lucide="plus" style="width: 12px; height: 12px;"></i>
                   <span>Pay</span>
@@ -218,6 +218,17 @@ const Dashboard = {
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                   <span>Edit</span>
                 </button>
+                ${m.receipt_url ? `
+                <button type="button" class="btn btn-secondary btn-sm btn-view-receipt" onclick="Dashboard.handleViewReceipt('${encodeURIComponent(m.receipt_url)}', '${this.escapeHTML(m.person_name || 'Receipt')}')" title="View Receipt / Invoice" style="color: var(--color-primary); font-weight: var(--font-weight-medium);">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <span>View</span>
+                </button>
+                ` : `
+                <button type="button" class="btn btn-secondary btn-sm" disabled title="No receipt attached" style="opacity: 0.45; cursor: not-allowed;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <span>View</span>
+                </button>
+                `}
               </div>
             </td>
           </tr>
@@ -273,6 +284,17 @@ const Dashboard = {
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:4px;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                 Edit
               </button>
+              ${m.receipt_url ? `
+              <button type="button" class="btn btn-secondary btn-sm" onclick="Dashboard.handleViewReceipt('${encodeURIComponent(m.receipt_url)}', '${this.escapeHTML(m.person_name || 'Receipt')}')" style="color: var(--color-primary); font-weight: var(--font-weight-medium);">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:4px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                View
+              </button>
+              ` : `
+              <button type="button" class="btn btn-secondary btn-sm" disabled style="opacity: 0.45; cursor: not-allowed;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:4px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                View
+              </button>
+              `}
             </div>
           </div>
         `;
@@ -715,7 +737,27 @@ const Dashboard = {
 
     // Attach target record id to form
     const form = document.getElementById("material-record-form");
-    if (form) form.setAttribute("data-edit-id", record.id);
+    if (form) {
+      form.setAttribute("data-edit-id", record.id);
+      form.setAttribute("data-existing-receipt-url", record.receipt_url || "");
+    }
+
+    // Set receipt preview if existing receipt is present
+    const receiptFileInput = document.getElementById("receiptFileInput");
+    const previewContainer = document.getElementById("receipt-preview-container");
+    const previewImg = document.getElementById("receipt-preview-img");
+    const fileNameEl = document.getElementById("receipt-file-name");
+    const fileSizeEl = document.getElementById("receipt-file-size");
+    if (receiptFileInput) receiptFileInput.value = "";
+
+    if (record.receipt_url && previewContainer && previewImg) {
+      previewImg.src = record.receipt_url;
+      if (fileNameEl) fileNameEl.textContent = "Existing Receipt";
+      if (fileSizeEl) fileSizeEl.textContent = "Saved in Cloud Storage";
+      previewContainer.style.display = "flex";
+    } else if (previewContainer) {
+      previewContainer.style.display = "none";
+    }
 
     // Show delete option in modal footer for existing records
     const deleteBtn = document.getElementById("btn-delete-material-record");
@@ -728,6 +770,27 @@ const Dashboard = {
     }
 
     UI.openModal("modal-material-form");
+  },
+
+  /**
+   * View Receipt Image in Modal
+   */
+  handleViewReceipt(encodedUrl, personName) {
+    const url = decodeURIComponent(encodedUrl);
+    const img = document.getElementById("receipt-view-image");
+    const subtitle = document.getElementById("receipt-view-subtitle");
+    const downloadLink = document.getElementById("receipt-view-download-link");
+
+    if (img) img.src = url;
+    if (subtitle) {
+      subtitle.textContent = (personName && personName !== "Unassigned")
+        ? `Invoice / Receipt for ${personName}`
+        : "High-resolution verification";
+    }
+    if (downloadLink) downloadLink.href = url;
+
+    UI.openModal("modal-receipt-view");
+    if (window.lucide) window.lucide.createIcons();
   },
 
   /**
