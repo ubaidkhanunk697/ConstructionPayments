@@ -99,10 +99,16 @@ const Dashboard = {
       }
     }
 
+    // Count all records where payment status is either 'Pending' or 'Partial'
+    const pendingRecordsCount = materials.filter(
+      (r) => r.payment_status === "Pending" || r.payment_status === "Partial" || (r.pending_amount !== null && Number(r.pending_amount) > 0)
+    ).length;
+
     return {
       totalAmountDue: totalDue,
       totalPaid: totalPaid,
       totalPending: totalPending,
+      pendingRecordsCount: pendingRecordsCount,
       totalRecords: materials.length,
       unsetTotalDueCount
     };
@@ -148,10 +154,9 @@ const Dashboard = {
     }
 
     if (totalPendingEl) {
-      totalPendingEl.textContent = UI.formatPKR(summary.totalPending);
-      if (summary.unsetTotalDueCount > 0) {
-        totalPendingEl.title = `Excludes ${summary.unsetTotalDueCount} record(s) with unset total due`;
-      }
+      const count = summary.pendingRecordsCount !== undefined ? summary.pendingRecordsCount : 0;
+      totalPendingEl.textContent = count;
+      totalPendingEl.title = `${count} supplier record(s) pending or partially settled`;
     }
 
     if (totalRecordsEl) {
@@ -647,6 +652,7 @@ const Dashboard = {
       totalAmountDue: 0,
       totalPaid: 0,
       totalPending: 0,
+      pendingRecordsCount: 0,
       totalRecords: 0,
       unsetTotalDueCount: 0
     });
