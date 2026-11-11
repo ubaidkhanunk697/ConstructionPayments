@@ -50,6 +50,9 @@ LEFT JOIN (
   GROUP BY material_record_id
 ) p ON m.id = p.material_record_id;
 
+GRANT SELECT ON public.material_records_view TO authenticated;
+GRANT SELECT ON public.material_records_view TO anon;
+
 -- 3. Create 'receipts' Storage Bucket (Public read for owners, authenticated write)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('receipts', 'receipts', true)
