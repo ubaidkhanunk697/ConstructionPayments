@@ -193,8 +193,9 @@ function setupActionButtons() {
   if (exportGDriveBtnToolbar) exportGDriveBtnToolbar.addEventListener("click", handleGDriveExportClick);
 }
 
-// Active receipt photo pending upload
+// Active receipt photo pending upload & active preview object URL
 let pendingReceiptFile = null;
+let currentPreviewObjectUrl = null;
 
 /**
  * Client-Side HTML5 Canvas Image Compression
@@ -258,10 +259,16 @@ function compressReceiptImage(file) {
 }
 
 /**
- * Reset receipt selection and thumbnail preview
+ * Reset receipt selection and thumbnail preview (revoking object URLs to prevent memory leaks)
  */
 function resetReceiptUpload() {
   pendingReceiptFile = null;
+  if (currentPreviewObjectUrl) {
+    try {
+      URL.revokeObjectURL(currentPreviewObjectUrl);
+    } catch (_) {}
+    currentPreviewObjectUrl = null;
+  }
   const fileInput = document.getElementById("receiptFileInput");
   const previewContainer = document.getElementById("receipt-preview-container");
   const previewImg = document.getElementById("receipt-preview-img");
@@ -304,8 +311,17 @@ function setupReceiptUploadHandlers() {
 
       pendingReceiptFile = file;
 
+      // Revoke any previous object URL before allocating a new one
+      if (currentPreviewObjectUrl) {
+        try {
+          URL.revokeObjectURL(currentPreviewObjectUrl);
+        } catch (_) {}
+        currentPreviewObjectUrl = null;
+      }
+
+      currentPreviewObjectUrl = URL.createObjectURL(file);
       if (previewImg) {
-        previewImg.src = URL.createObjectURL(file);
+        previewImg.src = currentPreviewObjectUrl;
       }
       if (fileNameEl) {
         fileNameEl.textContent = file.name;
@@ -331,6 +347,16 @@ function setupReceiptUploadHandlers() {
       UI.showToast("Receipt removed.", "info", "Removed");
     });
   }
+
+  // Ensure clean teardown on page navigation or unload
+  window.addEventListener("beforeunload", () => {
+    if (currentPreviewObjectUrl) {
+      try {
+        URL.revokeObjectURL(currentPreviewObjectUrl);
+      } catch (_) {}
+      currentPreviewObjectUrl = null;
+    }
+  });
 }
 
 /**

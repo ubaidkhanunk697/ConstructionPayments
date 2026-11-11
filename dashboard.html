@@ -10,6 +10,12 @@
       content="Manage construction materials, suppliers, payments, and balances with strict financial accuracy."
     />
 
+    <!-- Content Security Policy: permits blob: for high-res receipt processing -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://unpkg.com https://cdn.jsdelivr.net https://accounts.google.com https://www.googleapis.com; frame-src 'self' https://accounts.google.com; frame-ancestors 'none';"
+    />
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
     <link rel="alternate icon" href="assets/favicon.svg" />
@@ -2015,14 +2021,14 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="js/config.js?v=2.8"></script>
-    <script src="js/supabaseClient.js?v=2.8"></script>
-    <script src="js/auth.js?v=2.8"></script>
-    <script src="js/db.js?v=2.8"></script>
-    <script src="js/dashboard.js?v=2.8"></script>
-    <script src="js/ui.js?v=2.8"></script>
-    <script src="js/export.js?v=2.8"></script>
-    <script src="js/googleDriveExport.js?v=2.8"></script>
-    <script src="js/app.js?v=2.8"></script>
+    <script src="js/config.js?v=2.9"></script>
+    <script src="js/supabaseClient.js?v=2.9"></script>
+    <script src="js/auth.js?v=2.9"></script>
+    <script src="js/db.js?v=2.9"></script>
+    <script src="js/dashboard.js?v=2.9"></script>
+    <script src="js/ui.js?v=2.9"></script>
+    <script src="js/export.js?v=2.9"></script>
+    <script src="js/googleDriveExport.js?v=2.9"></script>
+    <script src="js/app.js?v=2.9"></script>
   </body>
 </html>
