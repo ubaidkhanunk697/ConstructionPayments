@@ -749,12 +749,16 @@ const Dashboard = {
     }
 
     // Set receipt preview if existing receipt is present
-    const receiptFileInput = document.getElementById("receiptFileInput");
+    const cameraInput = document.getElementById("receiptCameraInput");
+    const galleryInput = document.getElementById("receiptGalleryInput");
+    const legacyInput = document.getElementById("receiptFileInput");
     const previewContainer = document.getElementById("receipt-preview-container");
     const previewImg = document.getElementById("receipt-preview-img");
     const fileNameEl = document.getElementById("receipt-file-name");
     const fileSizeEl = document.getElementById("receipt-file-size");
-    if (receiptFileInput) receiptFileInput.value = "";
+    if (cameraInput) cameraInput.value = "";
+    if (galleryInput) galleryInput.value = "";
+    if (legacyInput) legacyInput.value = "";
 
     if (record.receipt_url && previewContainer && previewImg) {
       previewImg.src = record.receipt_url;

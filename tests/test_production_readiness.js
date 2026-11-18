@@ -81,7 +81,8 @@ function auditProduction() {
   check("Modals", "Delete Confirm button", dashHtml.includes('id="btn-confirm-delete"'));
   check("Modals", "Delete Cancel / close attribute", dashHtml.includes('data-close-modal="modal-confirm-delete"'));
 
-  check("Modals", "Receipt file input with camera capture", dashHtml.includes('id="receiptFileInput"') && dashHtml.includes('capture="environment"'));
+  check("Modals", "Receipt camera file input with environment capture", (dashHtml.includes('id="receiptCameraInput"') || dashHtml.includes('id="receiptFileInput"')) && dashHtml.includes('capture="environment"'));
+  check("Modals", "Receipt gallery file input", dashHtml.includes('id="receiptGalleryInput"'));
   check("Modals", "Receipt image preview thumbnail", dashHtml.includes('id="receipt-preview-img"'));
   check("Modals", "Receipt remove button", dashHtml.includes('id="btn-remove-receipt"'));
   check("Modals", "Receipt view verification modal", dashHtml.includes('id="modal-receipt-view"'));

@@ -269,13 +269,17 @@ function resetReceiptUpload() {
     } catch (_) {}
     currentPreviewObjectUrl = null;
   }
-  const fileInput = document.getElementById("receiptFileInput");
+  const cameraInput = document.getElementById("receiptCameraInput");
+  const galleryInput = document.getElementById("receiptGalleryInput");
+  const legacyInput = document.getElementById("receiptFileInput");
   const previewContainer = document.getElementById("receipt-preview-container");
   const previewImg = document.getElementById("receipt-preview-img");
   const fileNameEl = document.getElementById("receipt-file-name");
   const fileSizeEl = document.getElementById("receipt-file-size");
 
-  if (fileInput) fileInput.value = "";
+  if (cameraInput) cameraInput.value = "";
+  if (galleryInput) galleryInput.value = "";
+  if (legacyInput) legacyInput.value = "";
   if (previewImg) previewImg.src = "";
   if (fileNameEl) fileNameEl.textContent = "";
   if (fileSizeEl) fileSizeEl.textContent = "";
@@ -283,60 +287,78 @@ function resetReceiptUpload() {
 }
 
 /**
- * Wire receipt file selection and remove preview controls
+ * Wire receipt file selection (Camera & Gallery) and remove preview controls
  */
 function setupReceiptUploadHandlers() {
-  const chooseBtn = document.getElementById("btn-choose-receipt");
-  const fileInput = document.getElementById("receiptFileInput");
+  const cameraBtn = document.getElementById("btn-receipt-camera") || document.getElementById("btn-choose-receipt");
+  const galleryBtn = document.getElementById("btn-receipt-gallery");
+  const cameraInput = document.getElementById("receiptCameraInput") || document.getElementById("receiptFileInput");
+  const galleryInput = document.getElementById("receiptGalleryInput");
+  const legacyInput = document.getElementById("receiptFileInput");
   const removeBtn = document.getElementById("btn-remove-receipt");
   const previewContainer = document.getElementById("receipt-preview-container");
   const previewImg = document.getElementById("receipt-preview-img");
   const fileNameEl = document.getElementById("receipt-file-name");
   const fileSizeEl = document.getElementById("receipt-file-size");
 
-  if (chooseBtn && fileInput) {
-    chooseBtn.addEventListener("click", () => fileInput.click());
+  // Wire Button 1: Camera trigger
+  if (cameraBtn && cameraInput) {
+    cameraBtn.addEventListener("click", () => cameraInput.click());
   }
 
-  if (fileInput) {
-    fileInput.addEventListener("change", (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
+  // Wire Button 2: Gallery trigger
+  if (galleryBtn && galleryInput) {
+    galleryBtn.addEventListener("click", () => galleryInput.click());
+  }
 
-      if (!file.type.startsWith("image/")) {
-        UI.showToast("Please choose an image file (JPEG, PNG, WebP).", "warning", "Invalid File");
-        fileInput.value = "";
-        return;
-      }
+  // Unified File Selection Handler for both Camera and Gallery
+  const handleFileSelection = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
 
-      pendingReceiptFile = file;
+    if (!file.type.startsWith("image/")) {
+      UI.showToast("Please choose an image file (JPEG, PNG, WebP).", "warning", "Invalid File");
+      e.target.value = "";
+      return;
+    }
 
-      // Revoke any previous object URL before allocating a new one
-      if (currentPreviewObjectUrl) {
-        try {
-          URL.revokeObjectURL(currentPreviewObjectUrl);
-        } catch (_) {}
-        currentPreviewObjectUrl = null;
-      }
+    pendingReceiptFile = file;
 
-      currentPreviewObjectUrl = URL.createObjectURL(file);
-      if (previewImg) {
-        previewImg.src = currentPreviewObjectUrl;
-      }
-      if (fileNameEl) {
-        fileNameEl.textContent = file.name;
-      }
-      if (fileSizeEl) {
-        const originalKb = Math.round(file.size / 1024);
-        fileSizeEl.textContent = `Original: ${originalKb} KB • Compressing to ~150-250 KB`;
-      }
-      if (previewContainer) {
-        previewContainer.style.display = "flex";
-      }
+    // Revoke any previous object URL before allocating a new one
+    if (currentPreviewObjectUrl) {
+      try {
+        URL.revokeObjectURL(currentPreviewObjectUrl);
+      } catch (_) {}
+      currentPreviewObjectUrl = null;
+    }
 
-      const form = document.getElementById("material-record-form");
-      if (form) form.removeAttribute("data-existing-receipt-url");
-    });
+    currentPreviewObjectUrl = URL.createObjectURL(file);
+    if (previewImg) {
+      previewImg.src = currentPreviewObjectUrl;
+    }
+    if (fileNameEl) {
+      fileNameEl.textContent = file.name;
+    }
+    if (fileSizeEl) {
+      const originalKb = Math.round(file.size / 1024);
+      fileSizeEl.textContent = `Original: ${originalKb} KB • Compressing to ~150-250 KB`;
+    }
+    if (previewContainer) {
+      previewContainer.style.display = "flex";
+    }
+
+    const form = document.getElementById("material-record-form");
+    if (form) form.removeAttribute("data-existing-receipt-url");
+  };
+
+  if (cameraInput) {
+    cameraInput.addEventListener("change", handleFileSelection);
+  }
+  if (galleryInput) {
+    galleryInput.addEventListener("change", handleFileSelection);
+  }
+  if (legacyInput && legacyInput !== cameraInput) {
+    legacyInput.addEventListener("change", handleFileSelection);
   }
 
   if (removeBtn) {
