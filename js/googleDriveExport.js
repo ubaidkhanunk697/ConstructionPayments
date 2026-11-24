@@ -173,23 +173,9 @@ const GoogleDriveExport = {
       this.setLoadingState(true, "Uploading to Drive...");
       UI.showToast("Uploading Excel workbook directly to your Google Drive...", "info", "Uploading");
 
-      // Step 3: Convert Excel blob to Base64 for RFC-compliant multipart payload
-      const base64Data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result;
-          const base64 = typeof result === "string" && result.includes(",")
-            ? result.split(",")[1]
-            : result;
-          resolve(base64);
-        };
-        reader.onerror = (err) => reject(err || new Error("Failed to read Excel workbook for upload"));
-        reader.readAsDataURL(blob);
-      });
-
-      // Construct multipart/related request payload strictly adhering to Google Drive REST API v3
+      // Step 3: Construct multipart/related binary payload strictly adhering to Google Drive REST API v3 (RFC 2387)
       const boundary = "-------ConstructionSystemUpload" + Date.now();
-      const delimiter = `\r\n--${boundary}\r\n`;
+      const delimiter = `--${boundary}\r\n`;
       const closeDelimiter = `\r\n--${boundary}--`;
 
       const metadata = {
@@ -198,15 +184,18 @@ const GoogleDriveExport = {
         description: `Construction Financial Report generated on ${new Date().toLocaleString("en-PK")} (${materialsCount} records).`
       };
 
-      const multipartRequestBody =
+      const metadataPart =
         delimiter +
         "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
         JSON.stringify(metadata) +
+        "\r\n" +
         delimiter +
-        "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n" +
-        "Content-Transfer-Encoding: base64\r\n\r\n" +
-        base64Data +
-        closeDelimiter;
+        "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n";
+
+      // Combine metadata string, binary Excel blob, and closing boundary into a single Blob
+      const multipartBlob = new Blob([metadataPart, blob, closeDelimiter], {
+        type: `multipart/related; boundary=${boundary}`
+      });
 
       // Step 4: Dispatch POST to Google Drive API v3 with explicit Content-Type boundary
       const uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,webContentLink";
@@ -216,7 +205,7 @@ const GoogleDriveExport = {
           "Authorization": `Bearer ${token}`,
           "Content-Type": `multipart/related; boundary=${boundary}`
         },
-        body: multipartRequestBody
+        body: multipartBlob
       });
 
       if (!response.ok) {
