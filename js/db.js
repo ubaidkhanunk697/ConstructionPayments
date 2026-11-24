@@ -260,7 +260,8 @@ const DemoStore = {
       total_due: payload.total_due !== "" && payload.total_due !== null && payload.total_due !== undefined ? Number(payload.total_due) : null,
       purchase_date: payload.purchase_date || new Date().toISOString().split("T")[0],
       notes: payload.notes || null,
-      receipt_url: payload.receipt_url || null,
+      receipt_url: payload.receipt_url || (Array.isArray(payload.receipt_urls) ? payload.receipt_urls[0] : null) || null,
+      receipt_urls: Array.isArray(payload.receipt_urls) ? payload.receipt_urls : (payload.receipt_url ? [payload.receipt_url] : []),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -281,7 +282,11 @@ const DemoStore = {
     if (payload.total_due !== undefined) mat.total_due = payload.total_due !== "" && payload.total_due !== null ? Number(payload.total_due) : null;
     if (payload.purchase_date !== undefined) mat.purchase_date = payload.purchase_date || null;
     if (payload.notes !== undefined) mat.notes = payload.notes || null;
-    if (payload.receipt_url !== undefined) mat.receipt_url = payload.receipt_url || null;
+    if (payload.receipt_urls !== undefined || payload.receipt_url !== undefined) {
+      const urls = Array.isArray(payload.receipt_urls) ? payload.receipt_urls : (payload.receipt_url ? [payload.receipt_url] : []);
+      mat.receipt_urls = urls;
+      mat.receipt_url = urls[0] || null;
+    }
     mat.updated_at = new Date().toISOString();
 
     this._save();
@@ -491,10 +496,13 @@ const DB = {
   /**
    * Insert New Material Record
    */
-  async createMaterialRecord({ person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url }) {
+  async createMaterialRecord({ person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url, receipt_urls }) {
     const supabase = this.getClient();
+    const finalUrls = Array.isArray(receipt_urls) ? receipt_urls : (receipt_url ? [receipt_url] : []);
+    const primaryUrl = finalUrls[0] || (receipt_url || null);
+
     if (!supabase) {
-      return DemoStore.createMaterial({ person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url });
+      return DemoStore.createMaterial({ person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url: primaryUrl, receipt_urls: finalUrls });
     }
 
     const user = Auth.currentUser;
@@ -511,7 +519,8 @@ const DB = {
         total_due: total_due !== undefined && total_due !== "" ? Number(total_due) : null,
         purchase_date: purchase_date || null,
         notes: notes || null,
-        receipt_url: receipt_url || null
+        receipt_url: primaryUrl,
+        receipt_urls: finalUrls
       })
       .select()
       .single();
@@ -523,10 +532,10 @@ const DB = {
   /**
    * Update Existing Material Record
    */
-  async updateMaterialRecord(id, { person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url }) {
+  async updateMaterialRecord(id, { person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url, receipt_urls }) {
     const supabase = this.getClient();
     if (!supabase) {
-      return DemoStore.updateMaterial(id, { person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url });
+      return DemoStore.updateMaterial(id, { person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url, receipt_urls });
     }
 
     const updatePayload = {
@@ -540,8 +549,10 @@ const DB = {
       updated_at: new Date().toISOString()
     };
 
-    if (receipt_url !== undefined) {
-      updatePayload.receipt_url = receipt_url || null;
+    if (receipt_urls !== undefined || receipt_url !== undefined) {
+      const urls = Array.isArray(receipt_urls) ? receipt_urls : (receipt_url ? [receipt_url] : []);
+      updatePayload.receipt_urls = urls;
+      updatePayload.receipt_url = urls[0] || null;
     }
 
     const { data, error } = await supabase

@@ -15,6 +15,13 @@ const Dashboard = {
    */
   async init() {
     this.setupFiltersAndSorting();
+    
+    // Wire receipt lightbox navigation controls
+    const prevBtn = document.getElementById("btn-receipt-prev");
+    const nextBtn = document.getElementById("btn-receipt-next");
+    if (prevBtn) prevBtn.onclick = () => this.navigateLightbox(-1);
+    if (nextBtn) nextBtn.onclick = () => this.navigateLightbox(1);
+
     await this.load();
   },
 
@@ -223,17 +230,25 @@ const Dashboard = {
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                   <span>Edit</span>
                 </button>
-                ${m.receipt_url ? `
-                <button type="button" class="btn btn-secondary btn-sm btn-view-receipt" onclick="Dashboard.handleViewReceipt('${encodeURIComponent(m.receipt_url)}', '${this.escapeHTML(m.person_name || 'Receipt')}')" title="View Receipt / Invoice" style="color: var(--color-primary); font-weight: var(--font-weight-medium);">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                  <span>View</span>
-                </button>
-                ` : `
-                <button type="button" class="btn btn-secondary btn-sm" disabled title="No receipt attached" style="opacity: 0.45; cursor: not-allowed;">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                  <span>View</span>
-                </button>
-                `}
+                ${(() => {
+                  const rList = Array.isArray(m.receipt_urls) && m.receipt_urls.length > 0
+                    ? m.receipt_urls
+                    : (m.receipt_url ? [m.receipt_url] : []);
+                  if (rList.length > 0) {
+                    return `
+                      <button type="button" class="btn btn-secondary btn-sm btn-view-receipt" onclick="Dashboard.handleOpenLightbox('${m.id}')" title="View ${rList.length} Receipt Photo(s)" style="color: var(--color-primary); font-weight: var(--font-weight-medium);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span>View (${rList.length})</span>
+                      </button>
+                    `;
+                  }
+                  return `
+                    <button type="button" class="btn btn-secondary btn-sm" disabled title="No receipts attached" style="opacity: 0.45; cursor: not-allowed;">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <span>View</span>
+                    </button>
+                  `;
+                })()}
               </div>
             </td>
           </tr>
@@ -247,6 +262,9 @@ const Dashboard = {
         const totalDueText = m.total_due !== null ? UI.formatPKR(m.total_due) : "Unset";
         const pendingText = m.pending_amount !== null ? UI.formatPKR(m.pending_amount) : "Unset";
         const statusBadge = this.getStatusBadgeHTML(m.payment_status, m.pending_amount, m.total_due, m.paid_amount);
+        const rList = Array.isArray(m.receipt_urls) && m.receipt_urls.length > 0
+          ? m.receipt_urls
+          : (m.receipt_url ? [m.receipt_url] : []);
 
         return `
           <div class="mobile-record-card" data-record-id="${m.id}">
@@ -289,10 +307,10 @@ const Dashboard = {
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:4px;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                 Edit
               </button>
-              ${m.receipt_url ? `
-              <button type="button" class="btn btn-secondary btn-sm" onclick="Dashboard.handleViewReceipt('${encodeURIComponent(m.receipt_url)}', '${this.escapeHTML(m.person_name || 'Receipt')}')" style="color: var(--color-primary); font-weight: var(--font-weight-medium);">
+              ${rList.length > 0 ? `
+              <button type="button" class="btn btn-secondary btn-sm" onclick="Dashboard.handleOpenLightbox('${m.id}')" style="color: var(--color-primary); font-weight: var(--font-weight-medium);">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:4px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                View
+                View (${rList.length})
               </button>
               ` : `
               <button type="button" class="btn btn-secondary btn-sm" disabled style="opacity: 0.45; cursor: not-allowed;">
@@ -749,24 +767,16 @@ const Dashboard = {
     }
 
     // Set receipt preview if existing receipt is present
-    const cameraInput = document.getElementById("receiptCameraInput");
-    const galleryInput = document.getElementById("receiptGalleryInput");
-    const legacyInput = document.getElementById("receiptFileInput");
-    const previewContainer = document.getElementById("receipt-preview-container");
-    const previewImg = document.getElementById("receipt-preview-img");
-    const fileNameEl = document.getElementById("receipt-file-name");
-    const fileSizeEl = document.getElementById("receipt-file-size");
-    if (cameraInput) cameraInput.value = "";
-    if (galleryInput) galleryInput.value = "";
-    if (legacyInput) legacyInput.value = "";
+    const existingUrls = Array.isArray(record.receipt_urls) && record.receipt_urls.length > 0
+      ? record.receipt_urls
+      : (record.receipt_url ? [record.receipt_url] : []);
 
-    if (record.receipt_url && previewContainer && previewImg) {
-      previewImg.src = record.receipt_url;
-      if (fileNameEl) fileNameEl.textContent = "Existing Receipt";
-      if (fileSizeEl) fileSizeEl.textContent = "Saved in Cloud Storage";
-      previewContainer.style.display = "flex";
-    } else if (previewContainer) {
-      previewContainer.style.display = "none";
+    if (typeof window.setReceiptQueue === "function") {
+      window.setReceiptQueue(existingUrls.map(url => ({
+        id: `existing_${Math.random().toString(36).substring(2, 7)}`,
+        type: "existing",
+        url: url
+      })));
     }
 
     // Show delete option in modal footer for existing records
@@ -782,25 +792,97 @@ const Dashboard = {
     UI.openModal("modal-material-form");
   },
 
+  activeLightboxPhotos: [],
+  activeLightboxIndex: 0,
+  activeLightboxTitle: "",
+
   /**
-   * View Receipt Image in Modal
+   * Open Lightbox for a Record's Receipt Photos
+   */
+  handleOpenLightbox(recordId) {
+    const record = this.cachedMaterials.find((m) => m.id === recordId);
+    if (!record) return;
+    const urls = Array.isArray(record.receipt_urls) && record.receipt_urls.length > 0
+      ? record.receipt_urls
+      : (record.receipt_url ? [record.receipt_url] : []);
+    if (!urls.length) return;
+
+    this.activeLightboxPhotos = urls;
+    this.activeLightboxIndex = 0;
+    this.activeLightboxTitle = record.person_name || "Receipt Invoice";
+    this.renderLightboxPhoto();
+    UI.openModal("modal-receipt-view");
+    if (window.lucide) window.lucide.createIcons();
+  },
+
+  /**
+   * View Receipt Image in Modal (supports legacy & single-view calls)
    */
   handleViewReceipt(encodedUrl, personName) {
     const url = decodeURIComponent(encodedUrl);
+    this.activeLightboxPhotos = [url];
+    this.activeLightboxIndex = 0;
+    this.activeLightboxTitle = personName || "Receipt Invoice";
+    this.renderLightboxPhoto();
+    UI.openModal("modal-receipt-view");
+    if (window.lucide) window.lucide.createIcons();
+  },
+
+  /**
+   * Navigate Lightbox Photos (Previous / Next)
+   */
+  navigateLightbox(direction) {
+    if (!this.activeLightboxPhotos.length) return;
+    const total = this.activeLightboxPhotos.length;
+    this.activeLightboxIndex = (this.activeLightboxIndex + direction + total) % total;
+    this.renderLightboxPhoto();
+  },
+
+  /**
+   * Render Active Lightbox Photo & Thumbnail Strip
+   */
+  renderLightboxPhoto() {
+    const photos = this.activeLightboxPhotos;
+    const index = this.activeLightboxIndex;
+    const url = photos[index] || "";
+
     const img = document.getElementById("receipt-view-image");
     const subtitle = document.getElementById("receipt-view-subtitle");
     const downloadLink = document.getElementById("receipt-view-download-link");
+    const counter = document.getElementById("receipt-lightbox-counter");
+    const thumbsContainer = document.getElementById("receipt-lightbox-thumbs");
+    const prevBtn = document.getElementById("btn-receipt-prev");
+    const nextBtn = document.getElementById("btn-receipt-next");
 
     if (img) img.src = url;
-    if (subtitle) {
-      subtitle.textContent = (personName && personName !== "Unassigned")
-        ? `Invoice / Receipt for ${personName}`
-        : "High-resolution verification";
-    }
     if (downloadLink) downloadLink.href = url;
+    if (subtitle) {
+      subtitle.textContent = `Invoice / Receipt for ${this.activeLightboxTitle} (Photo ${index + 1} of ${photos.length})`;
+    }
+    if (counter) {
+      counter.textContent = `${index + 1} of ${photos.length}`;
+    }
 
-    UI.openModal("modal-receipt-view");
-    if (window.lucide) window.lucide.createIcons();
+    if (prevBtn) prevBtn.style.display = photos.length > 1 ? "inline-flex" : "none";
+    if (nextBtn) nextBtn.style.display = photos.length > 1 ? "inline-flex" : "none";
+
+    if (thumbsContainer) {
+      if (photos.length > 1) {
+        thumbsContainer.style.display = "flex";
+        thumbsContainer.innerHTML = photos.map((pUrl, pIdx) => `
+          <div
+            class="lightbox-thumb"
+            onclick="Dashboard.activeLightboxIndex = ${pIdx}; Dashboard.renderLightboxPhoto();"
+            style="width: 50px; height: 50px; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; border: 2px solid ${pIdx === index ? '#60a5fa' : 'transparent'}; opacity: ${pIdx === index ? '1' : '0.6'}; transition: all 0.2s;"
+          >
+            <img src="${pUrl}" alt="Thumb ${pIdx + 1}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+          </div>
+        `).join("");
+      } else {
+        thumbsContainer.style.display = "none";
+        thumbsContainer.innerHTML = "";
+      }
+    }
   },
 
   /**

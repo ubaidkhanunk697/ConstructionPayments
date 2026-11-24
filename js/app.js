@@ -193,9 +193,20 @@ function setupActionButtons() {
   if (exportGDriveBtnToolbar) exportGDriveBtnToolbar.addEventListener("click", handleGDriveExportClick);
 }
 
-// Active receipt photo pending upload & active preview object URL
-let pendingReceiptFile = null;
-let currentPreviewObjectUrl = null;
+// Maximum receipt photos allowed per record
+const MAX_RECEIPT_PHOTOS = 5;
+
+// Active receipt items queue for Add / Edit Modal: [{ id, type: 'existing' | 'new', url, file?, blob? }]
+let currentReceiptItems = [];
+
+// Helper to revoke blob URLs
+function revokeReceiptBlobUrls() {
+  currentReceiptItems.forEach(item => {
+    if (item.type === "new" && item.url && item.url.startsWith("blob:")) {
+      try { URL.revokeObjectURL(item.url); } catch (_) {}
+    }
+  });
+}
 
 /**
  * Client-Side HTML5 Canvas Image Compression
@@ -258,33 +269,107 @@ function compressReceiptImage(file) {
   });
 }
 
-/**
- * Reset receipt selection and thumbnail preview (revoking object URLs to prevent memory leaks)
- */
-function resetReceiptUpload() {
-  pendingReceiptFile = null;
-  if (currentPreviewObjectUrl) {
-    try {
-      URL.revokeObjectURL(currentPreviewObjectUrl);
-    } catch (_) {}
-    currentPreviewObjectUrl = null;
+function updateReceiptCounterBadge() {
+  const badge = document.getElementById("receipt-count-badge");
+  if (badge) {
+    const count = currentReceiptItems.length;
+    badge.textContent = `${count} / ${MAX_RECEIPT_PHOTOS} Photos`;
+    if (count >= MAX_RECEIPT_PHOTOS) {
+      badge.style.background = "rgba(239, 68, 68, 0.15)";
+      badge.style.color = "#f87171";
+      badge.style.borderColor = "rgba(239, 68, 68, 0.3)";
+    } else {
+      badge.style.background = "rgba(59, 130, 246, 0.15)";
+      badge.style.color = "#60a5fa";
+      badge.style.borderColor = "rgba(59, 130, 246, 0.3)";
+    }
   }
-  const cameraInput = document.getElementById("receiptCameraInput");
-  const galleryInput = document.getElementById("receiptGalleryInput");
-  const legacyInput = document.getElementById("receiptFileInput");
+
+  const cameraBtn = document.getElementById("btn-receipt-camera");
+  const galleryBtn = document.getElementById("btn-receipt-gallery");
+  const isFull = currentReceiptItems.length >= MAX_RECEIPT_PHOTOS;
+  if (cameraBtn) cameraBtn.disabled = isFull;
+  if (galleryBtn) galleryBtn.disabled = isFull;
+}
+
+function renderReceiptPreviewGrid() {
   const previewContainer = document.getElementById("receipt-preview-container");
+  const previewGrid = document.getElementById("receipt-preview-grid");
   const previewImg = document.getElementById("receipt-preview-img");
   const fileNameEl = document.getElementById("receipt-file-name");
   const fileSizeEl = document.getElementById("receipt-file-size");
 
+  updateReceiptCounterBadge();
+
+  if (!previewContainer || !previewGrid) return;
+
+  if (currentReceiptItems.length === 0) {
+    previewContainer.style.display = "none";
+    previewGrid.innerHTML = "";
+    if (previewImg) previewImg.src = "";
+    if (fileNameEl) fileNameEl.textContent = "";
+    if (fileSizeEl) fileSizeEl.textContent = "";
+    return;
+  }
+
+  previewContainer.style.display = "flex";
+  if (previewImg) previewImg.src = currentReceiptItems[0]?.url || "";
+  if (fileNameEl) fileNameEl.textContent = `${currentReceiptItems.length} Photo(s) Attached`;
+  if (fileSizeEl) fileSizeEl.textContent = "Ready for high-quality compression";
+
+  previewGrid.innerHTML = currentReceiptItems.map((item, index) => `
+    <div class="receipt-thumb-card" style="position: relative; width: 76px; height: 76px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--color-border); background: #1e293b; display: flex; align-items: center; justify-content: center;">
+      <img src="${item.url}" alt="Receipt ${index + 1}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+      <button
+        type="button"
+        class="btn-remove-thumb"
+        data-index="${index}"
+        title="Remove this photo"
+        style="position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; border-radius: 50%; background: rgba(239, 68, 68, 0.9); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; font-weight: bold; line-height: 1; padding: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.5);"
+      >&times;</button>
+    </div>
+  `).join("");
+
+  previewGrid.querySelectorAll(".btn-remove-thumb").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      if (!isNaN(idx) && currentReceiptItems[idx]) {
+        const removed = currentReceiptItems.splice(idx, 1)[0];
+        if (removed.type === "new" && removed.url && removed.url.startsWith("blob:")) {
+          try { URL.revokeObjectURL(removed.url); } catch (_) {}
+        }
+        renderReceiptPreviewGrid();
+        UI.showToast("Receipt photo removed.", "info", "Removed");
+      }
+    });
+  });
+}
+
+/**
+ * Reset receipt selection and thumbnail preview (revoking object URLs to prevent memory leaks)
+ */
+function resetReceiptUpload() {
+  revokeReceiptBlobUrls();
+  currentReceiptItems = [];
+
+  const cameraInput = document.getElementById("receiptCameraInput");
+  const galleryInput = document.getElementById("receiptGalleryInput");
+  const legacyInput = document.getElementById("receiptFileInput");
+
   if (cameraInput) cameraInput.value = "";
   if (galleryInput) galleryInput.value = "";
   if (legacyInput) legacyInput.value = "";
-  if (previewImg) previewImg.src = "";
-  if (fileNameEl) fileNameEl.textContent = "";
-  if (fileSizeEl) fileSizeEl.textContent = "";
-  if (previewContainer) previewContainer.style.display = "none";
+
+  renderReceiptPreviewGrid();
 }
+
+// Expose queue setter for edit mode
+window.setReceiptQueue = function(items) {
+  revokeReceiptBlobUrls();
+  currentReceiptItems = Array.isArray(items) ? [...items] : [];
+  renderReceiptPreviewGrid();
+};
 
 /**
  * Wire receipt file selection (Camera & Gallery) and remove preview controls
@@ -296,69 +381,76 @@ function setupReceiptUploadHandlers() {
   const galleryInput = document.getElementById("receiptGalleryInput");
   const legacyInput = document.getElementById("receiptFileInput");
   const removeBtn = document.getElementById("btn-remove-receipt");
-  const previewContainer = document.getElementById("receipt-preview-container");
-  const previewImg = document.getElementById("receipt-preview-img");
-  const fileNameEl = document.getElementById("receipt-file-name");
-  const fileSizeEl = document.getElementById("receipt-file-size");
 
   // Wire Button 1: Camera trigger
   if (cameraBtn && cameraInput) {
-    cameraBtn.addEventListener("click", () => cameraInput.click());
+    cameraBtn.addEventListener("click", () => {
+      if (currentReceiptItems.length >= MAX_RECEIPT_PHOTOS) {
+        UI.showToast(`Maximum ${MAX_RECEIPT_PHOTOS} receipt photos allowed.`, "warning", "Limit Reached");
+        return;
+      }
+      cameraInput.click();
+    });
   }
 
   // Wire Button 2: Gallery trigger
   if (galleryBtn && galleryInput) {
-    galleryBtn.addEventListener("click", () => galleryInput.click());
+    galleryBtn.addEventListener("click", () => {
+      if (currentReceiptItems.length >= MAX_RECEIPT_PHOTOS) {
+        UI.showToast(`Maximum ${MAX_RECEIPT_PHOTOS} receipt photos allowed.`, "warning", "Limit Reached");
+        return;
+      }
+      galleryInput.click();
+    });
   }
 
-  // Unified File Selection Handler for both Camera and Gallery
-  const handleFileSelection = (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
+  // Multi-file Selection Handler for both Camera and Gallery
+  const handleMultipleFiles = (files) => {
+    if (!files || files.length === 0) return;
 
-    if (!file.type.startsWith("image/")) {
-      UI.showToast("Please choose an image file (JPEG, PNG, WebP).", "warning", "Invalid File");
-      e.target.value = "";
-      return;
-    }
+    let addedCount = 0;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith("image/")) continue;
 
-    pendingReceiptFile = file;
+      if (currentReceiptItems.length >= MAX_RECEIPT_PHOTOS) {
+        UI.showToast(`Maximum ${MAX_RECEIPT_PHOTOS} receipt photos allowed per record.`, "warning", "Limit Reached");
+        break;
+      }
 
-    // Revoke any previous object URL before allocating a new one
-    if (currentPreviewObjectUrl) {
-      try {
-        URL.revokeObjectURL(currentPreviewObjectUrl);
-      } catch (_) {}
-      currentPreviewObjectUrl = null;
-    }
-
-    currentPreviewObjectUrl = URL.createObjectURL(file);
-    if (previewImg) {
-      previewImg.src = currentPreviewObjectUrl;
-    }
-    if (fileNameEl) {
-      fileNameEl.textContent = file.name;
-    }
-    if (fileSizeEl) {
-      const originalKb = Math.round(file.size / 1024);
-      fileSizeEl.textContent = `Original: ${originalKb} KB • Compressing to ~150-250 KB`;
-    }
-    if (previewContainer) {
-      previewContainer.style.display = "flex";
+      const objUrl = URL.createObjectURL(file);
+      currentReceiptItems.push({
+        id: `new_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
+        type: "new",
+        url: objUrl,
+        file: file
+      });
+      addedCount++;
     }
 
-    const form = document.getElementById("material-record-form");
-    if (form) form.removeAttribute("data-existing-receipt-url");
+    renderReceiptPreviewGrid();
+    if (addedCount > 0) {
+      UI.showToast(`${addedCount} photo(s) added.`, "info", "Photo Added");
+    }
   };
 
   if (cameraInput) {
-    cameraInput.addEventListener("change", handleFileSelection);
+    cameraInput.addEventListener("change", (e) => {
+      handleMultipleFiles(e.target.files);
+      cameraInput.value = "";
+    });
   }
   if (galleryInput) {
-    galleryInput.addEventListener("change", handleFileSelection);
+    galleryInput.addEventListener("change", (e) => {
+      handleMultipleFiles(e.target.files);
+      galleryInput.value = "";
+    });
   }
   if (legacyInput && legacyInput !== cameraInput) {
-    legacyInput.addEventListener("change", handleFileSelection);
+    legacyInput.addEventListener("change", (e) => {
+      handleMultipleFiles(e.target.files);
+      legacyInput.value = "";
+    });
   }
 
   if (removeBtn) {
@@ -366,18 +458,13 @@ function setupReceiptUploadHandlers() {
       resetReceiptUpload();
       const form = document.getElementById("material-record-form");
       if (form) form.removeAttribute("data-existing-receipt-url");
-      UI.showToast("Receipt removed.", "info", "Removed");
+      UI.showToast("All receipt photos removed.", "info", "Removed");
     });
   }
 
   // Ensure clean teardown on page navigation or unload
   window.addEventListener("beforeunload", () => {
-    if (currentPreviewObjectUrl) {
-      try {
-        URL.revokeObjectURL(currentPreviewObjectUrl);
-      } catch (_) {}
-      currentPreviewObjectUrl = null;
-    }
+    revokeReceiptBlobUrls();
   });
 }
 
@@ -434,49 +521,56 @@ function setupMaterialFormHandlers() {
     // Close form modal
     UI.closeModal("modal-material-form");
 
-    // Process Receipt Photo (Compression & Storage)
-    let receiptUrl = null;
-    const existingReceiptUrl = form.getAttribute("data-existing-receipt-url");
+    // Process Receipt Photos (Multi-Image Compression & Storage)
+    const finalReceiptUrls = [];
     const previewContainer = document.getElementById("receipt-preview-container");
     const hasVisiblePreview = previewContainer && previewContainer.style.display !== "none";
 
-    if (pendingReceiptFile) {
-      try {
-        UI.showToast("Compressing receipt photo...", "info", "Compressing");
-        const compressedBlob = await compressReceiptImage(pendingReceiptFile);
+    if (hasVisiblePreview && currentReceiptItems.length > 0) {
+      const supabase = (typeof DB !== "undefined" && typeof DB.getClient === "function")
+        ? DB.getClient()
+        : (typeof window.supabaseClient !== "undefined" ? window.supabaseClient : (typeof window.supabase !== "undefined" ? window.supabase : null));
+      const user = Auth.currentUser || (Auth.client?.auth ? (await Auth.client.auth.getUser())?.data?.user : null);
 
-        const supabase = (typeof DB !== "undefined" && typeof DB.getClient === "function")
-          ? DB.getClient()
-          : (typeof window.supabaseClient !== "undefined" ? window.supabaseClient : (typeof window.supabase !== "undefined" ? window.supabase : null));
-        const user = Auth.currentUser || (Auth.client?.auth ? (await Auth.client.auth.getUser())?.data?.user : null);
+      for (let i = 0; i < currentReceiptItems.length; i++) {
+        const item = currentReceiptItems[i];
+        if (item.type === "existing" && item.url) {
+          finalReceiptUrls.push(item.url);
+        } else if (item.type === "new" && item.file) {
+          try {
+            UI.showToast(`Compressing photo ${i + 1} of ${currentReceiptItems.length}...`, "info", "Compressing");
+            const compressedBlob = await compressReceiptImage(item.file);
 
-        if (supabase && user && user.id) {
-          UI.showToast("Uploading receipt to cloud storage...", "info", "Uploading");
-          const filePath = `${user.id}/${Date.now()}_receipt.jpg`;
-          const { data: uploadData, error: uploadErr } = await supabase.storage
-            .from("receipts")
-            .upload(filePath, compressedBlob, {
-              contentType: "image/jpeg",
-              upsert: true
-            });
+            if (supabase && user && user.id) {
+              UI.showToast(`Uploading photo ${i + 1} of ${currentReceiptItems.length}...`, "info", "Uploading");
+              const filePath = `${user.id}/${Date.now()}_${i}_receipt.jpg`;
+              const { data: uploadData, error: uploadErr } = await supabase.storage
+                .from("receipts")
+                .upload(filePath, compressedBlob, {
+                  contentType: "image/jpeg",
+                  upsert: true
+                });
 
-          if (uploadErr) {
-            console.warn("Storage upload notice:", uploadErr);
-            receiptUrl = URL.createObjectURL(compressedBlob);
-            UI.showToast("Receipt saved locally (check 'receipts' bucket in Supabase).", "warning", "Storage Notice");
-          } else {
-            const { data: urlData } = supabase.storage.from("receipts").getPublicUrl(filePath);
-            receiptUrl = urlData?.publicUrl || null;
+              if (uploadErr) {
+                console.warn("Storage upload notice:", uploadErr);
+                const localUrl = URL.createObjectURL(compressedBlob);
+                finalReceiptUrls.push(localUrl);
+              } else {
+                const { data: urlData } = supabase.storage.from("receipts").getPublicUrl(filePath);
+                if (urlData?.publicUrl) {
+                  finalReceiptUrls.push(urlData.publicUrl);
+                }
+              }
+            } else {
+              const localUrl = URL.createObjectURL(compressedBlob);
+              finalReceiptUrls.push(localUrl);
+            }
+          } catch (err) {
+            console.error("Photo upload error:", err);
+            UI.showToast(`Photo ${i + 1} could not be uploaded: ${err.message}`, "warning", "Photo Notice");
           }
-        } else {
-          receiptUrl = URL.createObjectURL(compressedBlob);
         }
-      } catch (err) {
-        console.error("Receipt compression/upload error:", err);
-        UI.showToast("Could not process receipt photo: " + err.message, "warning", "Photo Notice");
       }
-    } else if (existingReceiptUrl && hasVisiblePreview) {
-      receiptUrl = existingReceiptUrl;
     }
 
     const payload = {
@@ -487,7 +581,8 @@ function setupMaterialFormHandlers() {
       total_due: totalAmount,
       purchase_date: date,
       notes: notes,
-      receipt_url: receiptUrl
+      receipt_urls: finalReceiptUrls,
+      receipt_url: finalReceiptUrls[0] || null
     };
 
     if (editId) {

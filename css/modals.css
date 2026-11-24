@@ -367,6 +367,24 @@
   transition: all var(--transition-fast);
 }
 
+.receipt-thumb-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.receipt-thumb-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+}
+
+.lightbox-thumb {
+  transition: transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.lightbox-thumb:hover {
+  opacity: 1 !important;
+  transform: scale(1.05);
+}
+
 #receipt-view-image {
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
 }
