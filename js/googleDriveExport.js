@@ -130,11 +130,110 @@ const GoogleDriveExport = {
   },
 
   /**
-   * Main Google Drive Upload Workflow:
-   * 1. Authenticate with Google
-   * 2. Generate Excel Blob via ExportService
-   * 3. Multipart POST directly to Google Drive REST API v3
-   * 4. Display success toast with clickable webViewLink
+   * Find or Create a folder in Google Drive (Singleton root support)
+   */
+  async findOrCreateFolder(token, folderName, parentId = null) {
+    let q = `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    if (parentId) {
+      q += ` and '${parentId}' in parents`;
+    }
+    const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,webViewLink)&spaces=drive`;
+    const res = await fetch(searchUrl, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Failed to search folder: ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (data.files && data.files.length > 0) {
+      return data.files[0];
+    }
+    return await this.createFolder(token, folderName, parentId);
+  },
+
+  /**
+   * Create a folder in Google Drive API v3
+   */
+  async createFolder(token, folderName, parentId = null) {
+    const metadata = {
+      name: folderName,
+      mimeType: "application/vnd.google-apps.folder"
+    };
+    if (parentId) {
+      metadata.parents = [parentId];
+    }
+
+    const res = await fetch("https://www.googleapis.com/drive/v3/files?fields=id,name,webViewLink", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json; charset=UTF-8"
+      },
+      body: JSON.stringify(metadata)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Failed to create folder '${folderName}': ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  /**
+   * Upload binary file blob to a specific Google Drive folder using RFC 2387 multipart
+   */
+  async uploadFileToFolder(token, blob, filename, mimeType, parentId) {
+    const boundary = "-------ConstructionSystemUpload" + Date.now() + Math.random().toString(36).substring(2, 6);
+    const delimiter = `--${boundary}\r\n`;
+    const closeDelimiter = `\r\n--${boundary}--`;
+
+    const metadata = {
+      name: filename,
+      mimeType: mimeType,
+      parents: [parentId]
+    };
+
+    const metadataPart =
+      delimiter +
+      "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
+      JSON.stringify(metadata) +
+      "\r\n" +
+      delimiter +
+      `Content-Type: ${mimeType}\r\n\r\n`;
+
+    const multipartBlob = new Blob([metadataPart, blob, closeDelimiter], {
+      type: `multipart/related; boundary=${boundary}`
+    });
+
+    const uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink";
+    const response = await fetch(uploadUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`
+      },
+      body: multipartBlob
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Failed to upload '${filename}': ${response.status}`);
+    }
+    return await response.json();
+  },
+
+  /**
+   * Main Google Drive Upload Workflow (Hierarchical Backup):
+   * 1. Authenticate with Google (GIS)
+   * 2. Find or create singleton root folder: 'Nawaz Constructions Backups'
+   * 3. Create date-wise subfolder: 'Backup_YYYY-MM-DD_HH-mm'
+   * 4. Create 'Excel' and 'Photos' subfolders inside date folder
+   * 5. Upload Material_Records.xlsx into 'Excel'
+   * 6. Upload all filtered receipt images into 'Photos'
+   * 7. Display success toast with clickable webViewLink to the date folder
    */
   async saveToGoogleDrive() {
     if (this.isUploading) return;
@@ -163,70 +262,77 @@ const GoogleDriveExport = {
       // Step 1: Acquire Google OAuth Access Token
       const token = await this.requestAccessToken();
 
-      this.setLoadingState(true, "Generating Report...");
-      UI.showToast("Generating Excel spreadsheet from project data...", "info", "Preparing Report");
-
-      // Step 2: Generate identical Excel workbook blob from active filtered records
+      // Step 2: Synchronize with currently active on-screen filtered records
       const filteredRecords = typeof Dashboard !== "undefined" ? Dashboard.filteredMaterials : null;
-      const { blob, filename, materialsCount } = await ExportService.generateExcelBlob(filteredRecords);
+      const materials = filteredRecords || (typeof Dashboard !== "undefined" ? Dashboard.cachedMaterials : []);
 
-      this.setLoadingState(true, "Uploading to Drive...");
-      UI.showToast("Uploading Excel workbook directly to your Google Drive...", "info", "Uploading");
+      // Collect receipt photos belonging to currently active filtered records
+      const { photoList, photosByRecordId } = ExportService.collectReceiptPhotos(materials);
 
-      // Step 3: Construct multipart/related binary payload strictly adhering to Google Drive REST API v3 (RFC 2387)
-      const boundary = "-------ConstructionSystemUpload" + Date.now();
-      const delimiter = `--${boundary}\r\n`;
-      const closeDelimiter = `\r\n--${boundary}--`;
+      // Step 3: Locate or Create Singleton Root Folder ("Nawaz Constructions Backups")
+      this.setLoadingState(true, "Creating Drive folders...");
+      UI.showToast("Setting up backup folder structure in Google Drive...", "info", "Google Drive");
 
-      const metadata = {
-        name: filename,
-        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        description: `Construction Financial Report generated on ${new Date().toLocaleString("en-PK")} (${materialsCount} records).`
-      };
+      const rootFolder = await this.findOrCreateFolder(token, "Nawaz Constructions Backups");
 
-      const metadataPart =
-        delimiter +
-        "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
-        JSON.stringify(metadata) +
-        "\r\n" +
-        delimiter +
-        "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n";
+      // Step 4: Create timestamped Date-Wise Backup Folder
+      const now = new Date();
+      const dateStr = now.toISOString().split("T")[0];
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const dateFolderName = `Backup_${dateStr}_${hours}-${minutes}`;
 
-      // Combine metadata string, binary Excel blob, and closing boundary into a single Blob
-      const multipartBlob = new Blob([metadataPart, blob, closeDelimiter], {
-        type: `multipart/related; boundary=${boundary}`
+      const dateFolder = await this.createFolder(token, dateFolderName, rootFolder.id);
+
+      // Step 5: Create distinct "Excel" and "Photos" subfolders inside Date Folder
+      const excelFolder = await this.createFolder(token, "Excel", dateFolder.id);
+      const photosFolder = await this.createFolder(token, "Photos", dateFolder.id);
+
+      // Step 6: Generate and Upload Material_Records.xlsx into "Excel" folder
+      this.setLoadingState(true, "Generating Excel report...");
+      const { blob: excelBlob, materialsCount } = await ExportService.generateExcelBlob(materials, {
+        includeReceipts: photoList.length > 0,
+        photosByRecordId
       });
 
-      // Step 4: Dispatch POST to Google Drive API v3 with explicit Content-Type boundary
-      const uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,webContentLink";
-      const response = await fetch(uploadUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": `multipart/related; boundary=${boundary}`
-        },
-        body: multipartBlob
-      });
+      this.setLoadingState(true, "Uploading Excel to Drive...");
+      await this.uploadFileToFolder(
+        token,
+        excelBlob,
+        "Material_Records.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        excelFolder.id
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        let errMsg = errorData.error?.message || `Google Drive API returned status ${response.status}`;
-        if (response.status === 403 && errMsg.toLowerCase().includes("drive api")) {
-          errMsg = "Google Drive API is not enabled in your Google Cloud Console project. Please enable 'Google Drive API' in Google Cloud Console.";
+      // Step 7: Upload all attached receipt photos into "Photos" folder with live progress
+      let uploadedPhotosCount = 0;
+      if (photoList.length > 0) {
+        for (let i = 0; i < photoList.length; i++) {
+          const photo = photoList[i];
+          this.setLoadingState(true, `Uploading photos (${i + 1}/${photoList.length})...`);
+          UI.showToast(`Uploading photo ${i + 1} of ${photoList.length} to Drive...`, "info", "Uploading Photos", 1200);
+
+          const photoBlob = await ExportService.fetchImageBlob(photo.url);
+          if (photoBlob) {
+            await this.uploadFileToFolder(
+              token,
+              photoBlob,
+              photo.filename,
+              "image/jpeg",
+              photosFolder.id
+            );
+            uploadedPhotosCount++;
+          }
         }
-        throw new Error(errMsg);
       }
 
-      const fileData = await response.json();
-      console.log("Uploaded successfully to Google Drive:", fileData);
-
-      // Step 5: Deliver user success toast with direct link
-      const viewUrl = fileData.webViewLink || `https://drive.google.com/file/d/${fileData.id}/view`;
+      // Step 8: User Feedback with Direct Google Drive Folder Link
+      const folderViewUrl = dateFolder.webViewLink || `https://drive.google.com/drive/folders/${dateFolder.id}`;
       const toastMessage = `
-        <span>Excel file <strong>${fileData.name}</strong> successfully saved to your Google Drive!</span>
+        <span>Backup saved to Google Drive! (${materialsCount} records, ${uploadedPhotosCount} photos)</span>
         <div style="margin-top: 6px;">
-          <a href="${viewUrl}" target="_blank" rel="noopener noreferrer" style="color: #60A5FA; text-decoration: underline; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-            Open File in Google Drive &rarr;
+          <a href="${folderViewUrl}" target="_blank" rel="noopener noreferrer" style="color: #60A5FA; text-decoration: underline; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+            Open Backup Folder in Google Drive &rarr;
           </a>
         </div>
       `;
@@ -234,7 +340,7 @@ const GoogleDriveExport = {
       UI.showToast(toastMessage, "success", "Saved to Google Drive", 12000);
 
     } catch (err) {
-      console.error("Google Drive Upload Error:", err);
+      console.error("Google Drive Backup Error:", err);
       const isUserClosed = err.message?.includes("popup_closed") || err.message?.includes("access_denied");
       if (isUserClosed) {
         UI.showToast("Google authorization request was cancelled.", "info", "Authorization Cancelled");
@@ -247,7 +353,7 @@ const GoogleDriveExport = {
         );
       } else {
         UI.showToast(
-          err.message || "Failed to upload file to Google Drive. Please check your credentials.",
+          err.message || "Failed to upload backup to Google Drive. Please check your credentials.",
           "error",
           "Google Drive Error",
           9000

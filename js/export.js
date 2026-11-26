@@ -8,11 +8,92 @@ const ExportService = {
   isExporting: false,
 
   /**
+   * Helper: Sanitize string for clean, cross-platform filenames
+   */
+  sanitizeFilename(str) {
+    if (!str) return "Unknown";
+    return String(str)
+      .replace(/[/\\?%*:|"<>]/g, "")
+      .trim()
+      .replace(/\s+/g, "_")
+      .substring(0, 40) || "Unknown";
+  },
+
+  /**
+   * Collect and organize receipt photos from material records matching table chronological order
+   */
+  collectReceiptPhotos(materials = []) {
+    const photoList = [];
+    const photosByRecordId = {};
+
+    const sorted = [...materials].sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (timeA && timeB && timeA !== timeB) return timeA - timeB;
+      const dateA = a.purchase_date || "";
+      const dateB = b.purchase_date || "";
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    });
+
+    const today = (typeof UI !== "undefined" && typeof UI.getTodayDateString === "function")
+      ? UI.getTodayDateString()
+      : new Date().toISOString().split("T")[0];
+
+    sorted.forEach((m) => {
+      const rawUrls = Array.isArray(m.receipt_urls) && m.receipt_urls.length > 0
+        ? m.receipt_urls
+        : (m.receipt_url ? [m.receipt_url] : []);
+
+      const validUrls = rawUrls.filter(u => u && typeof u === "string" && u.trim().length > 0);
+      if (validUrls.length === 0) return;
+
+      const dateStr = m.purchase_date ? String(m.purchase_date).split("T")[0] : today;
+      const supplierStr = this.sanitizeFilename(m.person_name || "Supplier");
+      const materialStr = this.sanitizeFilename(m.material_type || "Material");
+
+      const recordPhotos = [];
+
+      validUrls.forEach((url, pIdx) => {
+        const photoNum = pIdx + 1;
+        const filename = `${dateStr}_${supplierStr}_${materialStr}_${photoNum}.jpg`;
+        const item = {
+          recordId: m.id,
+          photoIndex: photoNum,
+          totalPhotos: validUrls.length,
+          url: url.trim(),
+          filename: filename
+        };
+        photoList.push(item);
+        recordPhotos.push(item);
+      });
+
+      photosByRecordId[m.id] = recordPhotos;
+    });
+
+    return { photoList, photosByRecordId };
+  },
+
+  /**
+   * Helper: Fetch image file blob from remote URL (Supabase Storage)
+   */
+  async fetchImageBlob(url) {
+    try {
+      const res = await fetch(url, { mode: "cors" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.blob();
+    } catch (err) {
+      console.warn(`Failed to fetch receipt image ${url}:`, err);
+      return null;
+    }
+  },
+
+  /**
    * Generate Complete Excel Workbook and Binary Blob
    * Reused across Local Download and Google Drive Export
    * Synchronized with active on-screen filtered records
    */
-  async generateExcelBlob(recordsOverride = null) {
+  async generateExcelBlob(recordsOverride = null, options = {}) {
     if (typeof XLSX === "undefined") {
       throw new Error("SheetJS library is not loaded. Please verify your internet connection.");
     }
@@ -46,7 +127,7 @@ const ExportService = {
 
     // 3. Build Single Worksheet: "Material Records"
     const wb = XLSX.utils.book_new();
-    const wsMaterials = this.buildMaterialsWorksheet(materials, summaryMetrics);
+    const wsMaterials = this.buildMaterialsWorksheet(materials, summaryMetrics, options);
     XLSX.utils.book_append_sheet(wb, wsMaterials, "Material Records");
 
     // 4. Generate timestamped filename
@@ -64,38 +145,114 @@ const ExportService = {
     return {
       wb,
       blob,
+      wbout,
       filename,
       materialsCount: materials.length,
-      paymentsCount: payments.length
+      paymentsCount: payments.length,
+      materials
     };
   },
 
   /**
    * Main Export Controller (Local File Download)
+   * Smart Export: If 0 receipts -> Direct .xlsx download
+   *               If 1+ receipts -> Package .zip with .xlsx + receipts/ folder with local offline hyperlinks
    */
   async exportToExcel(recordsOverride = null) {
     if (this.isExporting) return; // Prevent concurrent export triggers
 
-    this.setLoadingState(true);
+    this.setLoadingState(true, "Preparing Export...");
 
     try {
-      UI.showToast("Generating Excel spreadsheet...", "info", "Exporting Excel");
-
       const targetRecords = recordsOverride || (typeof Dashboard !== "undefined" ? Dashboard.filteredMaterials : null);
-      const { wb, filename, materialsCount } = await this.generateExcelBlob(targetRecords);
+      const materials = targetRecords || (typeof Dashboard !== "undefined" ? Dashboard.cachedMaterials : []);
 
-      // Trigger download via SheetJS
-      XLSX.writeFile(wb, filename);
+      // Collect receipt photos belonging to currently active filtered records
+      const { photoList, photosByRecordId } = this.collectReceiptPhotos(materials);
+
+      // Scenario 1: Zero receipt photos attached -> Direct Excel (.xlsx) file download
+      if (photoList.length === 0) {
+        UI.showToast("Generating Excel spreadsheet from project data...", "info", "Exporting Excel");
+        const { wb, filename, materialsCount } = await this.generateExcelBlob(materials, { includeReceipts: false });
+
+        XLSX.writeFile(wb, filename);
+
+        UI.showToast(
+          `Successfully exported ${materialsCount} material record(s) to ${filename}`,
+          "success",
+          "Excel Downloaded"
+        );
+        return;
+      }
+
+      // Scenario 2: 1 or more receipt photos attached -> Package Complete Offline Backup ZIP
+      if (typeof JSZip === "undefined") {
+        console.warn("JSZip is not loaded, falling back to direct Excel file export.");
+        const { wb, filename, materialsCount } = await this.generateExcelBlob(materials, { includeReceipts: false });
+        XLSX.writeFile(wb, filename);
+        UI.showToast(`Exported ${materialsCount} record(s). (ZIP engine unavailable)`, "warning", "Excel Downloaded");
+        return;
+      }
+
+      UI.showToast(`Packaging complete offline backup with ${photoList.length} receipt photo(s)...`, "info", "Preparing Backup");
+      this.setLoadingState(true, `Preparing Backup (0/${photoList.length})...`);
+
+      // 1. Generate Material_Records.xlsx with offline relative local hyperlinks
+      const { wbout, materialsCount } = await this.generateExcelBlob(materials, {
+        includeReceipts: true,
+        photosByRecordId
+      });
+
+      // 2. Initialize ZIP archive
+      const zip = new JSZip();
+      zip.file("Material_Records.xlsx", wbout);
+      const receiptsFolder = zip.folder("receipts");
+
+      // 3. Fetch each photo from Supabase Storage with dynamic progress
+      let fetchedCount = 0;
+      for (let i = 0; i < photoList.length; i++) {
+        const photo = photoList[i];
+        this.setLoadingState(true, `Preparing Backup (${i + 1}/${photoList.length})...`);
+
+        const imgBlob = await this.fetchImageBlob(photo.url);
+        if (imgBlob) {
+          receiptsFolder.file(photo.filename, imgBlob);
+          fetchedCount++;
+        }
+      }
+
+      // 4. Generate and trigger download of ZIP archive
+      this.setLoadingState(true, "Compressing ZIP archive...");
+      const zipBlob = await zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 }
+      });
+
+      const today = (typeof UI !== "undefined" && typeof UI.getTodayDateString === "function")
+        ? UI.getTodayDateString()
+        : new Date().toISOString().split("T")[0];
+      const zipFilename = `Nawaz_Constructions_Backup_${today}.zip`;
+
+      const downloadUrl = URL.createObjectURL(zipBlob);
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.href = downloadUrl;
+      downloadAnchor.download = zipFilename;
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      document.body.removeChild(downloadAnchor);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 8000);
 
       UI.showToast(
-        `Successfully exported ${materialsCount} material record(s) to ${filename}`,
+        `Complete offline backup created successfully! (${materialsCount} records, ${fetchedCount} photos) in ${zipFilename}`,
         "success",
-        "Excel Downloaded"
+        "Backup Downloaded",
+        10000
       );
 
     } catch (err) {
-      console.error("Excel Export Error:", err);
-      UI.showToast(err.message || "An unexpected error occurred while generating Excel file.", "error", "Export Failed");
+      console.error("Excel Export / Backup Error:", err);
+      UI.showToast(err.message || "An unexpected error occurred while generating backup.", "error", "Backup Failed");
     } finally {
       this.setLoadingState(false);
     }
@@ -137,23 +294,36 @@ const ExportService = {
    *  Row 4 (idx 3): Table Headers: ID, Date, Supplier, Material, Qty, Unit, Rate, Total, Paid, Pending, Notes
    *  Row 5+ (idx 4+): Data rows sorted chronologically (ID: 1, 2, 3...)
    */
-  buildMaterialsWorksheet(materials = [], summaryMetrics = null) {
+  buildMaterialsWorksheet(materials = [], summaryMetrics = null, options = {}) {
     const metrics = summaryMetrics || this.computeSummaryMetrics(materials, []);
+    const includeReceipts = Boolean(options.includeReceipts && options.photosByRecordId);
+    const photosByRecordId = options.photosByRecordId || {};
 
     // 1. Construct Row Arrays (AOA)
     // Row 1: Top Summary Labels
-    const rowSummaryLabels = ["Total Due", "Total Paid", "Total Pending", "", "", "", "", "", "", "", ""];
+    const rowSummaryLabels = includeReceipts
+      ? ["Total Due", "Total Paid", "Total Pending", "", "", "", "", "", "", "", "", ""]
+      : ["Total Due", "Total Paid", "Total Pending", "", "", "", "", "", "", "", ""];
 
     // Row 2: Top Summary Numeric Values
-    const rowSummaryValues = [
-      Number(metrics.totalAmountDue) || 0,
-      Number(metrics.totalPaid) || 0,
-      Number(metrics.totalPending) || 0,
-      "", "", "", "", "", "", "", ""
-    ];
+    const rowSummaryValues = includeReceipts
+      ? [
+          Number(metrics.totalAmountDue) || 0,
+          Number(metrics.totalPaid) || 0,
+          Number(metrics.totalPending) || 0,
+          "", "", "", "", "", "", "", "", ""
+        ]
+      : [
+          Number(metrics.totalAmountDue) || 0,
+          Number(metrics.totalPaid) || 0,
+          Number(metrics.totalPending) || 0,
+          "", "", "", "", "", "", "", ""
+        ];
 
     // Row 3: Clean Separator Row
-    const rowSeparator = ["", "", "", "", "", "", "", "", "", "", ""];
+    const rowSeparator = includeReceipts
+      ? ["", "", "", "", "", "", "", "", "", "", "", ""]
+      : ["", "", "", "", "", "", "", "", "", "", ""];
 
     // Row 4: Table Headers (Omit Day column; compact exact names)
     const tableHeaders = [
@@ -169,6 +339,9 @@ const ExportService = {
       "Pending",
       "Notes"
     ];
+    if (includeReceipts) {
+      tableHeaders.push("Receipts");
+    }
 
     const rows = [
       rowSummaryLabels,
@@ -189,7 +362,10 @@ const ExportService = {
     });
 
     if (sortedMaterials.length === 0) {
-      rows.push(["No material records recorded yet.", "", "", "", "", "", "", "", "", "", ""]);
+      const emptyRow = includeReceipts
+        ? ["No material records recorded yet.", "", "", "", "", "", "", "", "", "", "", ""]
+        : ["No material records recorded yet.", "", "", "", "", "", "", "", "", "", ""];
+      rows.push(emptyRow);
     } else {
       sortedMaterials.forEach((m, index) => {
         const id = index + 1; // 1, 2, 3...
@@ -221,7 +397,7 @@ const ExportService = {
 
         const notes = m.notes || "";
 
-        rows.push([
+        const dataRow = [
           id,
           dateVal,
           supplier,
@@ -233,7 +409,20 @@ const ExportService = {
           paid,
           pending,
           notes
-        ]);
+        ];
+
+        if (includeReceipts) {
+          const photos = photosByRecordId[m.id] || [];
+          if (photos.length > 0) {
+            const count = photos.length;
+            const linkText = count === 1 ? "View Receipt 1" : `View Receipt 1 (+${count - 1} more)`;
+            dataRow.push(linkText);
+          } else {
+            dataRow.push("-");
+          }
+        }
+
+        rows.push(dataRow);
       });
     }
 
@@ -283,7 +472,7 @@ const ExportService = {
       if (typeof XLSX !== "undefined" && XLSX.utils && typeof XLSX.utils.decode_range === "function") {
         return XLSX.utils.decode_range(ref);
       }
-      return { s: { c: 0, r: 0 }, e: { c: 10, r: rows.length - 1 } };
+      return { s: { c: 0, r: 0 }, e: { c: includeReceipts ? 11 : 10, r: rows.length - 1 } };
     };
 
     const encodeCell = (coord) => {
@@ -294,7 +483,8 @@ const ExportService = {
       return (colLetters[coord.c] || "A") + (coord.r + 1);
     };
 
-    const range = decodeRange(ws["!ref"] || "A1:K4");
+    const defaultRef = includeReceipts ? "A1:L4" : "A1:K4";
+    const range = decodeRange(ws["!ref"] || defaultRef);
     for (let R = range.s.r; R <= range.e.r; ++R) {
       for (let C = range.s.c; C <= range.e.c; ++C) {
         const cellRef = encodeCell({ r: R, c: C });
@@ -344,7 +534,7 @@ const ExportService = {
         // Row 4 (idx 3): Table Header Row
         else if (R === 3) {
           const isNumHeader = (C === 4 || C === 6 || C === 7 || C === 8 || C === 9);
-          const isCenterHeader = (C === 0 || C === 1 || C === 5);
+          const isCenterHeader = (C === 0 || C === 1 || C === 5 || C === 11);
           cell.s = {
             font: fontHeader,
             fill: fillHeader,
@@ -432,6 +622,27 @@ const ExportService = {
             case 10: // Notes
               cell.s.alignment = { horizontal: "left", vertical: "center", wrapText: true };
               break;
+
+            case 11: // Receipts (Offline Local Hyperlinks)
+              cell.s.alignment = { horizontal: "center", vertical: "center" };
+              if (cell.v && cell.v !== "-") {
+                const record = sortedMaterials[R - 4];
+                const photos = record ? (photosByRecordId[record.id] || []) : [];
+                if (photos.length > 0) {
+                  cell.l = {
+                    Target: `receipts/${photos[0].filename}`,
+                    Tooltip: `Open ${photos[0].filename} (Offline Receipt Photo)`
+                  };
+                  cell.s.font = {
+                    name: "Arial",
+                    sz: 10,
+                    bold: true,
+                    color: { rgb: "0563C1" },
+                    underline: true
+                  };
+                }
+              }
+              break;
           }
         }
       }
@@ -443,12 +654,13 @@ const ExportService = {
 
     // 6. AutoFilter: Enable on the Table Header Row (Row 4, index 3)
     const lastRowIndex = Math.max(rows.length, 4);
+    const filterEndCol = includeReceipts ? "L" : "K";
     ws["!autofilter"] = {
-      ref: `A4:K${lastRowIndex}`
+      ref: `A4:${filterEndCol}${lastRowIndex}`
     };
 
     // 7. Column Widths (Exact specifications)
-    ws["!cols"] = [
+    const cols = [
       { wch: 6 },  // ID: ~6
       { wch: 11 }, // Date: ~11
       { wch: 16 }, // Supplier: ~16
@@ -461,6 +673,10 @@ const ExportService = {
       { wch: 12 }, // Pending: ~12
       { wch: 26 }  // Notes: ~26 (wrapText: true)
     ];
+    if (includeReceipts) {
+      cols.push({ wch: 22 }); // Receipts: ~22
+    }
+    ws["!cols"] = cols;
 
     // 8. Row Heights (Summary/Header ~20-22pt, Separator 10pt, Data 15pt default)
     const rowHeights = [
@@ -638,7 +854,7 @@ const ExportService = {
   /**
    * Toggle button loading state across all Excel download buttons
    */
-  setLoadingState(isLoading) {
+  setLoadingState(isLoading, statusText = "") {
     this.isExporting = isLoading;
 
     const btnHeader = document.getElementById("btn-export-excel");
@@ -650,15 +866,20 @@ const ExportService = {
     buttons.forEach((btn) => {
       if (isLoading) {
         btn.disabled = true;
-        btn.setAttribute("data-original-html", btn.innerHTML);
+        if (!btn.getAttribute("data-original-html")) {
+          btn.setAttribute("data-original-html", btn.innerHTML);
+        }
         btn.innerHTML = `
           <div class="spinner" style="display: inline-block; width: 14px; height: 14px; border-width: 2px;"></div>
-          <span>Exporting...</span>
+          <span>${statusText || "Exporting..."}</span>
         `;
       } else {
         btn.disabled = false;
         const orig = btn.getAttribute("data-original-html");
-        if (orig) btn.innerHTML = orig;
+        if (orig) {
+          btn.innerHTML = orig;
+          btn.removeAttribute("data-original-html");
+        }
       }
     });
 
