@@ -255,6 +255,7 @@ const DemoStore = {
       user_id: "demo-user-001",
       person_name: payload.person_name || null,
       material_type: payload.material_type || null,
+      rate: payload.rate || null,
       quantity: payload.quantity !== "" && payload.quantity !== null && payload.quantity !== undefined ? Number(payload.quantity) : null,
       unit: payload.unit || null,
       total_due: payload.total_due !== "" && payload.total_due !== null && payload.total_due !== undefined ? Number(payload.total_due) : null,
@@ -277,6 +278,7 @@ const DemoStore = {
 
     if (payload.person_name !== undefined) mat.person_name = payload.person_name || null;
     if (payload.material_type !== undefined) mat.material_type = payload.material_type || null;
+    if (payload.rate !== undefined) mat.rate = payload.rate || null;
     if (payload.quantity !== undefined) mat.quantity = payload.quantity !== "" && payload.quantity !== null ? Number(payload.quantity) : null;
     if (payload.unit !== undefined) mat.unit = payload.unit || null;
     if (payload.total_due !== undefined) mat.total_due = payload.total_due !== "" && payload.total_due !== null ? Number(payload.total_due) : null;
@@ -496,13 +498,13 @@ const DB = {
   /**
    * Insert New Material Record
    */
-  async createMaterialRecord({ person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url, receipt_urls }) {
+  async createMaterialRecord({ person_name, material_type, rate, quantity, unit, total_due, purchase_date, notes, receipt_url, receipt_urls }) {
     const supabase = this.getClient();
     const finalUrls = Array.isArray(receipt_urls) ? receipt_urls : (receipt_url ? [receipt_url] : []);
     const primaryUrl = finalUrls[0] || (receipt_url || null);
 
     if (!supabase) {
-      return DemoStore.createMaterial({ person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url: primaryUrl, receipt_urls: finalUrls });
+      return DemoStore.createMaterial({ person_name, material_type, rate, quantity, unit, total_due, purchase_date, notes, receipt_url: primaryUrl, receipt_urls: finalUrls });
     }
 
     const user = Auth.currentUser;
@@ -514,6 +516,7 @@ const DB = {
         user_id: user.id,
         person_name: person_name || null,
         material_type: material_type || null,
+        rate: rate || null,
         quantity: quantity !== undefined && quantity !== "" ? Number(quantity) : null,
         unit: unit || null,
         total_due: total_due !== undefined && total_due !== "" ? Number(total_due) : null,
@@ -532,10 +535,10 @@ const DB = {
   /**
    * Update Existing Material Record
    */
-  async updateMaterialRecord(id, { person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url, receipt_urls }) {
+  async updateMaterialRecord(id, { person_name, material_type, rate, quantity, unit, total_due, purchase_date, notes, receipt_url, receipt_urls }) {
     const supabase = this.getClient();
     if (!supabase) {
-      return DemoStore.updateMaterial(id, { person_name, material_type, quantity, unit, total_due, purchase_date, notes, receipt_url, receipt_urls });
+      return DemoStore.updateMaterial(id, { person_name, material_type, rate, quantity, unit, total_due, purchase_date, notes, receipt_url, receipt_urls });
     }
 
     const updatePayload = {
@@ -548,6 +551,10 @@ const DB = {
       notes: notes || null,
       updated_at: new Date().toISOString()
     };
+
+    if (rate !== undefined) {
+      updatePayload.rate = rate || null;
+    }
 
     if (receipt_urls !== undefined || receipt_url !== undefined) {
       const urls = Array.isArray(receipt_urls) ? receipt_urls : (receipt_url ? [receipt_url] : []);

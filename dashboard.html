@@ -499,6 +499,7 @@
                     <th class="col-date">Date &amp; Day</th>
                     <th class="col-person">Person Name</th>
                     <th class="col-material">Material Type</th>
+                    <th class="col-rate">Rate</th>
                     <th class="col-quantity">Quantity</th>
                     <th class="col-due text-right">Total Due</th>
                     <th class="col-paid text-right">Paid</th>
@@ -817,6 +818,20 @@
                 <option value="Other Material"></option>
               </datalist>
               <span class="form-helper">Choose from the dropdown list or type any custom material name</span>
+            </div>
+
+            <!-- Field 2b: Rate (Optional) -->
+            <div class="form-group">
+              <label for="material-rate" class="form-label">Rate</label>
+              <input
+                type="text"
+                id="material-rate"
+                name="rate"
+                class="form-input"
+                placeholder="e.g. Rs. 1,350 / bag or 8,000 / trolley"
+                autocomplete="off"
+              />
+              <span class="form-helper">Optional rate or unit price (e.g. Rs. 1,350 / bag)</span>
             </div>
 
             <!-- Fields 3, 4: Material Quantity & Quantity Unit (Editable with Dropdown) -->
@@ -2070,14 +2085,14 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="js/config.js?v=3.2"></script>
-    <script src="js/supabaseClient.js?v=3.2"></script>
-    <script src="js/auth.js?v=3.2"></script>
-    <script src="js/db.js?v=3.2"></script>
-    <script src="js/dashboard.js?v=3.2"></script>
-    <script src="js/ui.js?v=3.2"></script>
-    <script src="js/export.js?v=3.2"></script>
-    <script src="js/googleDriveExport.js?v=3.2"></script>
-    <script src="js/app.js?v=3.2"></script>
+    <script src="js/config.js?v=3.3"></script>
+    <script src="js/supabaseClient.js?v=3.3"></script>
+    <script src="js/auth.js?v=3.3"></script>
+    <script src="js/db.js?v=3.3"></script>
+    <script src="js/dashboard.js?v=3.3"></script>
+    <script src="js/ui.js?v=3.3"></script>
+    <script src="js/export.js?v=3.3"></script>
+    <script src="js/googleDriveExport.js?v=3.3"></script>
+    <script src="js/app.js?v=3.3"></script>
   </body>
 </html>

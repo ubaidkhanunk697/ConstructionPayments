@@ -211,6 +211,7 @@ const Dashboard = {
             <td class="col-material">
               <span class="badge badge-unit table-material-badge" title="${this.escapeHTML(m.material_type || 'General')}">${this.escapeHTML(m.material_type || "General")}</span>
             </td>
+            <td class="col-rate"><span class="tabular-nums font-medium">${m.rate ? this.escapeHTML(m.rate) : '<span class="text-dim">-</span>'}</span></td>
             <td class="col-quantity">${quantityText}</td>
             <td class="col-due text-right text-total-due tabular-nums">${totalDueText}</td>
             <td class="col-paid text-right text-paid tabular-nums">${UI.formatPKR(m.paid_amount)}</td>
@@ -271,7 +272,7 @@ const Dashboard = {
             <div class="mobile-card-header">
               <div>
                 <div class="mobile-card-title">${this.escapeHTML(m.person_name || "Unassigned")}</div>
-                <div class="mobile-card-subtitle">${this.escapeHTML(m.material_type || "Material")} &bull; ${m.quantity ? `${m.quantity} ${m.unit || ''}` : 'Quantity unstated'}</div>
+                <div class="mobile-card-subtitle">${this.escapeHTML(m.material_type || "Material")}${m.rate ? ` &bull; Rate: ${this.escapeHTML(m.rate)}` : ''} &bull; ${m.quantity ? `${m.quantity} ${m.unit || ''}` : 'Quantity unstated'}</div>
               </div>
               <div>${statusBadge}</div>
             </div>
@@ -720,6 +721,7 @@ const Dashboard = {
     // Prepopulate modal form
     const personInput = document.getElementById("material-person");
     const typeSelect = document.getElementById("material-type");
+    const rateInput = document.getElementById("material-rate");
     const quantityInput = document.getElementById("material-quantity");
     const unitSelect = document.getElementById("material-unit-select");
     const customUnitInput = document.getElementById("material-custom-unit");
@@ -733,6 +735,7 @@ const Dashboard = {
 
     if (personInput) personInput.value = record.person_name || "";
     if (typeSelect) typeSelect.value = record.material_type || "";
+    if (rateInput) rateInput.value = record.rate || "";
     if (quantityInput) quantityInput.value = record.quantity !== null && record.quantity !== undefined ? record.quantity : "";
     if (unitSelect) unitSelect.value = record.unit || "";
     if (customUnitGroup) customUnitGroup.classList.add("hidden");

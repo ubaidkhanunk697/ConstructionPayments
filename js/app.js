@@ -141,6 +141,9 @@ function setupActionButtons() {
     const notesInput = document.getElementById("material-notes");
     if (notesInput) notesInput.value = "";
 
+    const rateInput = document.getElementById("material-rate");
+    if (rateInput) rateInput.value = "";
+
     const modalTitle = document.getElementById("material-form-title");
     if (modalTitle) modalTitle.textContent = "Add Material Record";
 
@@ -480,6 +483,7 @@ function setupMaterialFormHandlers() {
 
     const personName = document.getElementById("material-person")?.value.trim() || null;
     const materialType = document.getElementById("material-type")?.value.trim() || null;
+    const rate = document.getElementById("material-rate")?.value.trim() || null;
     const quantityRaw = document.getElementById("material-quantity")?.value;
     const quantity = quantityRaw !== "" && quantityRaw !== undefined ? parseFloat(quantityRaw) : null;
     const unit = document.getElementById("material-unit-select")?.value.trim() || null;
@@ -576,6 +580,7 @@ function setupMaterialFormHandlers() {
     const payload = {
       person_name: personName,
       material_type: materialType,
+      rate: rate,
       quantity: quantity,
       unit: resolvedUnit,
       total_due: totalAmount,

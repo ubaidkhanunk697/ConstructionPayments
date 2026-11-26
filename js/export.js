@@ -385,12 +385,14 @@ const ExportService = {
           ? Number(m.pending_amount)
           : Math.max(0, totalDue - paid);
 
-        // Derive Rate: unit price if stored, or totalDue / qty
+        // Derive Rate: stored rate string/number, unit price if stored, or totalDue / qty
         let rate = "";
         if (m.rate !== null && m.rate !== undefined && m.rate !== "") {
-          rate = Number(m.rate);
+          const numRate = Number(m.rate);
+          rate = (!isNaN(numRate) && String(numRate) === String(m.rate).trim()) ? numRate : String(m.rate);
         } else if (m.unit_price !== null && m.unit_price !== undefined && m.unit_price !== "") {
-          rate = Number(m.unit_price);
+          const numPrice = Number(m.unit_price);
+          rate = (!isNaN(numPrice) && String(numPrice) === String(m.unit_price).trim()) ? numPrice : String(m.unit_price);
         } else if (typeof qty === "number" && qty > 0 && totalDue > 0) {
           rate = Math.round((totalDue / qty) * 100) / 100;
         }
@@ -585,7 +587,7 @@ const ExportService = {
               break;
 
             case 6: // Rate
-              cell.s.alignment = { horizontal: "right", vertical: "center" };
+              cell.s.alignment = { horizontal: typeof cell.v === "number" ? "right" : "left", vertical: "center" };
               if (typeof cell.v === "number") {
                 cell.t = "n";
                 cell.z = (cell.v % 1 !== 0) ? "#,##0.00" : "#,##0";
