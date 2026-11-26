@@ -302,7 +302,7 @@ const ExportService = {
     // 1. Construct Row Arrays (AOA)
     // Row 1: Top Summary Labels
     const rowSummaryLabels = includeReceipts
-      ? ["Total Due", "Total Paid", "Total Pending", "", "", "", "", "", "", "", "", ""]
+      ? ["Total Due", "Total Paid", "Total Pending", "", "", "", "", "", "", "", "", "", "", "", "", ""]
       : ["Total Due", "Total Paid", "Total Pending", "", "", "", "", "", "", "", ""];
 
     // Row 2: Top Summary Numeric Values
@@ -311,7 +311,7 @@ const ExportService = {
           Number(metrics.totalAmountDue) || 0,
           Number(metrics.totalPaid) || 0,
           Number(metrics.totalPending) || 0,
-          "", "", "", "", "", "", "", "", ""
+          "", "", "", "", "", "", "", "", "", "", "", "", ""
         ]
       : [
           Number(metrics.totalAmountDue) || 0,
@@ -322,7 +322,7 @@ const ExportService = {
 
     // Row 3: Clean Separator Row
     const rowSeparator = includeReceipts
-      ? ["", "", "", "", "", "", "", "", "", "", "", ""]
+      ? ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
       : ["", "", "", "", "", "", "", "", "", "", ""];
 
     // Row 4: Table Headers (Omit Day column; compact exact names)
@@ -340,7 +340,7 @@ const ExportService = {
       "Notes"
     ];
     if (includeReceipts) {
-      tableHeaders.push("Receipts");
+      tableHeaders.push("Receipt 1", "Receipt 2", "Receipt 3", "Receipt 4", "Receipt 5");
     }
 
     const rows = [
@@ -363,7 +363,7 @@ const ExportService = {
 
     if (sortedMaterials.length === 0) {
       const emptyRow = includeReceipts
-        ? ["No material records recorded yet.", "", "", "", "", "", "", "", "", "", "", ""]
+        ? ["No material records recorded yet.", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
         : ["No material records recorded yet.", "", "", "", "", "", "", "", "", "", ""];
       rows.push(emptyRow);
     } else {
@@ -413,12 +413,12 @@ const ExportService = {
 
         if (includeReceipts) {
           const photos = photosByRecordId[m.id] || [];
-          if (photos.length > 0) {
-            const count = photos.length;
-            const linkText = count === 1 ? "View Receipt 1" : `View Receipt 1 (+${count - 1} more)`;
-            dataRow.push(linkText);
-          } else {
-            dataRow.push("-");
+          for (let p = 0; p < 5; p++) {
+            if (photos[p]) {
+              dataRow.push(`View Receipt ${p + 1}`);
+            } else {
+              dataRow.push("-");
+            }
           }
         }
 
@@ -472,7 +472,7 @@ const ExportService = {
       if (typeof XLSX !== "undefined" && XLSX.utils && typeof XLSX.utils.decode_range === "function") {
         return XLSX.utils.decode_range(ref);
       }
-      return { s: { c: 0, r: 0 }, e: { c: includeReceipts ? 11 : 10, r: rows.length - 1 } };
+      return { s: { c: 0, r: 0 }, e: { c: includeReceipts ? 15 : 10, r: rows.length - 1 } };
     };
 
     const encodeCell = (coord) => {
@@ -483,7 +483,7 @@ const ExportService = {
       return (colLetters[coord.c] || "A") + (coord.r + 1);
     };
 
-    const defaultRef = includeReceipts ? "A1:L4" : "A1:K4";
+    const defaultRef = includeReceipts ? "A1:P4" : "A1:K4";
     const range = decodeRange(ws["!ref"] || defaultRef);
     for (let R = range.s.r; R <= range.e.r; ++R) {
       for (let C = range.s.c; C <= range.e.c; ++C) {
@@ -534,7 +534,7 @@ const ExportService = {
         // Row 4 (idx 3): Table Header Row
         else if (R === 3) {
           const isNumHeader = (C === 4 || C === 6 || C === 7 || C === 8 || C === 9);
-          const isCenterHeader = (C === 0 || C === 1 || C === 5 || C === 11);
+          const isCenterHeader = (C === 0 || C === 1 || C === 5 || C >= 11);
           cell.s = {
             font: fontHeader,
             fill: fillHeader,
@@ -623,15 +623,21 @@ const ExportService = {
               cell.s.alignment = { horizontal: "left", vertical: "center", wrapText: true };
               break;
 
-            case 11: // Receipts (Offline Local Hyperlinks)
+            case 11: // Receipt 1 (Offline Local Hyperlink)
+            case 12: // Receipt 2 (Offline Local Hyperlink)
+            case 13: // Receipt 3 (Offline Local Hyperlink)
+            case 14: // Receipt 4 (Offline Local Hyperlink)
+            case 15: // Receipt 5 (Offline Local Hyperlink)
               cell.s.alignment = { horizontal: "center", vertical: "center" };
               if (cell.v && cell.v !== "-") {
+                const photoIdx = C - 11;
                 const record = sortedMaterials[R - 4];
                 const photos = record ? (photosByRecordId[record.id] || []) : [];
-                if (photos.length > 0) {
+                const photo = photos[photoIdx];
+                if (photo) {
                   cell.l = {
-                    Target: `receipts/${photos[0].filename}`,
-                    Tooltip: `Open ${photos[0].filename} (Offline Receipt Photo)`
+                    Target: `receipts/${photo.filename}`,
+                    Tooltip: `Open ${photo.filename} (Offline Receipt Photo ${photoIdx + 1})`
                   };
                   cell.s.font = {
                     name: "Arial",
@@ -654,7 +660,7 @@ const ExportService = {
 
     // 6. AutoFilter: Enable on the Table Header Row (Row 4, index 3)
     const lastRowIndex = Math.max(rows.length, 4);
-    const filterEndCol = includeReceipts ? "L" : "K";
+    const filterEndCol = includeReceipts ? "P" : "K";
     ws["!autofilter"] = {
       ref: `A4:${filterEndCol}${lastRowIndex}`
     };
@@ -674,7 +680,13 @@ const ExportService = {
       { wch: 26 }  // Notes: ~26 (wrapText: true)
     ];
     if (includeReceipts) {
-      cols.push({ wch: 22 }); // Receipts: ~22
+      cols.push(
+        { wch: 16 }, // Receipt 1: ~16
+        { wch: 16 }, // Receipt 2: ~16
+        { wch: 16 }, // Receipt 3: ~16
+        { wch: 16 }, // Receipt 4: ~16
+        { wch: 16 }  // Receipt 5: ~16
+      );
     }
     ws["!cols"] = cols;
 
